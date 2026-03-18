@@ -53,78 +53,43 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
-            // Default Timing
-            _SectionCard(
-              title: 'Default Timing',
-              children: [
-                _TimingRow(
-                  label: 'Before prayer',
-                  value: settings.timingPreferences
-                      .configFor(PrayerName.fajr)
-                      .minutesBefore,
-                  unit: 'min',
-                ),
-                const Divider(height: 24),
-                _TimingRow(
-                  label: 'Prayer duration',
-                  value: settings.timingPreferences
-                      .configFor(PrayerName.fajr)
-                      .durationMinutes,
-                  unit: 'min',
-                ),
-                const Divider(height: 24),
-                _TimingRow(
-                  label: 'After prayer',
-                  value: settings.timingPreferences
-                      .configFor(PrayerName.fajr)
-                      .minutesAfter,
-                  unit: 'min',
-                ),
-              ],
-            ),
+            // Default Timing — show range across all prayers
+            Builder(builder: (context) {
+              final configs = [PrayerName.fajr, PrayerName.dhuhr, PrayerName.asr,
+                  PrayerName.maghrib, PrayerName.isha]
+                  .map((p) => settings.timingPreferences.configFor(p))
+                  .toList();
+              final beforeMin = configs.map((c) => c.minutesBefore).reduce((a, b) => a < b ? a : b);
+              final beforeMax = configs.map((c) => c.minutesBefore).reduce((a, b) => a > b ? a : b);
+              final durMin = configs.map((c) => c.durationMinutes).reduce((a, b) => a < b ? a : b);
+              final durMax = configs.map((c) => c.durationMinutes).reduce((a, b) => a > b ? a : b);
+              final afterMin = configs.map((c) => c.minutesAfter).reduce((a, b) => a < b ? a : b);
+              final afterMax = configs.map((c) => c.minutesAfter).reduce((a, b) => a > b ? a : b);
+
+              return _SectionCard(
+                title: 'Default Timing',
+                children: [
+                  _TimingRow(label: 'Before prayer', value: beforeMin, unit: beforeMin == beforeMax ? 'min' : '-$beforeMax min'),
+                  const Divider(height: 24),
+                  _TimingRow(label: 'Prayer duration', value: durMin, unit: durMin == durMax ? 'min' : '-$durMax min'),
+                  const Divider(height: 24),
+                  _TimingRow(label: 'After prayer', value: afterMin, unit: afterMin == afterMax ? 'min' : '-$afterMax min'),
+                ],
+              );
+            }),
             const SizedBox(height: 16),
 
-            // Customize per prayer toggle
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Customize Per Prayer',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  Switch(
-                    value: settings.usePerPrayerConfig,
-                    activeTrackColor: AppColors.primary,
-                    onChanged: (value) {
-                      ref.read(settingsProvider.notifier).updateSettings(
-                            settings.copyWith(usePerPrayerConfig: value),
-                          );
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            if (settings.usePerPrayerConfig) ...[
-              const SizedBox(height: 16),
-              ...PrayerName.values.map((prayer) => Padding(
+            // Per-prayer timing — always show since each prayer has its own config
+            _SectionCard(
+              title: 'Per-Prayer Timing',
+              children: PrayerName.values.map((prayer) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _PerPrayerTimingCard(
                       prayer: prayer,
                       config: settings.timingPreferences.configFor(prayer),
                     ),
-                  )),
-            ],
+                  )).toList(),
+            ),
             const SizedBox(height: 16),
 
             // Calculation Method
