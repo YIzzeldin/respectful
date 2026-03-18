@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../models/prayer_day.dart';
+import 'masjid_screen.dart';
 import '../providers/app_providers.dart';
 import '../widgets/next_prayer_banner.dart';
 import '../widgets/prayer_card.dart';
@@ -219,6 +220,7 @@ class _MasjidModeCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final masjidMode = ref.watch(masjidModeProvider);
+    final savedMasjids = ref.watch(savedMasjidsProvider);
     final isActive = masjidMode.isActive;
 
     return Container(
@@ -233,13 +235,28 @@ class _MasjidModeCard extends ConsumerWidget {
           onTap: () {
             if (isActive) {
               ref.read(masjidModeProvider.notifier).deactivate();
+            } else if (savedMasjids.isNotEmpty) {
+              // If they have saved masjids, go to the list to pick one
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MasjidScreen()),
+              );
             } else {
+              // No saved masjids — activate immediately and offer to save
               ref.read(masjidModeProvider.notifier).activate();
             }
           },
-          onLongPress: isActive
-              ? () => ref.read(masjidModeProvider.notifier).extend()
-              : null,
+          onLongPress: () {
+            if (isActive) {
+              ref.read(masjidModeProvider.notifier).extend();
+            } else {
+              // Long press always opens masjid management
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MasjidScreen()),
+              );
+            }
+          },
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -275,7 +292,9 @@ class _MasjidModeCard extends ConsumerWidget {
                       Text(
                         isActive
                             ? 'Tap to deactivate • Long press to extend'
-                            : 'Tap to activate masjid mode',
+                            : savedMasjids.isEmpty
+                                ? 'Tap to silence • Long press to manage'
+                                : '${savedMasjids.length} saved • Tap to select',
                         style: TextStyle(
                           fontSize: 13,
                           color: isActive
