@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../models/app_settings.dart';
 import '../models/prayer_day.dart';
+import '../services/event_log_service.dart';
 import 'masjid_screen.dart';
 import '../providers/app_providers.dart';
 import '../widgets/next_prayer_banner.dart';
@@ -127,6 +128,8 @@ class HomeScreen extends ConsumerWidget {
                       // Turn off both when disabling
                       ref.read(settingsProvider.notifier).setGeofenceSilenceEnabled(false);
                       ref.read(settingsProvider.notifier).setTimeBasedSilenceEnabled(false);
+                      // Immediately restore phone if currently silenced
+                      _restorePhoneNow(ref);
                     }
                   },
                   child: Container(
@@ -320,6 +323,39 @@ class HomeScreen extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Divider(height: 1, color: AppColors.surfaceVariant),
+    );
+  }
+
+  /// Force-restore phone to normal when master toggle is turned OFF.
+  /// Clears all silence state: geofence, prayer, masjid mode.
+  Future<void> _restorePhoneNow(WidgetRef ref) async {
+    final controller = ref.read(volumeControllerProvider);
+    final eventLog = ref.read(eventLogServiceProvider);
+
+    // Deactivate manual masjid mode if active
+    final masjidMode = ref.read(masjidModeProvider);
+    if (masjidMode.isActive) {
+      await ref.read(masjidModeProvider.notifier).deactivate();
+    }
+
+    // Cancel all alarms (prayer + masjid)
+    await controller.cancelAllAlarms();
+
+    // Remove all geofences
+    await controller.removeAllGeofences();
+
+    // Force DND back to normal (INTERRUPTION_FILTER_ALL + RINGER_MODE_NORMAL)
+    final normalState = {
+      'ringerMode': 2, // RINGER_MODE_NORMAL
+      'interruptionFilter': 4, // INTERRUPTION_FILTER_ALL
+      'ringVolume': 5,
+      'notificationVolume': 5,
+    };
+    await controller.restoreState(normalState);
+
+    await eventLog.log(
+      EventType.restored,
+      'Master toggle OFF — phone restored to normal',
     );
   }
 
