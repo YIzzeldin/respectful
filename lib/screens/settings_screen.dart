@@ -7,6 +7,7 @@ import '../models/prayer_day.dart';
 import '../models/prayer_timing_config.dart';
 import '../providers/app_providers.dart';
 import '../services/event_log_service.dart';
+import 'troubleshooting_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -135,6 +136,45 @@ class SettingsScreen extends ConsumerWidget {
 
             // Location
             _LocationCard(settings: settings),
+            const SizedBox(height: 16),
+
+            // Troubleshooting
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TroubleshootingScreen(),
+                      ),
+                    );
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(Icons.build_rounded, size: 20, color: AppColors.textSecondary),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Troubleshooting',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        Icon(Icons.chevron_right, color: AppColors.textTertiary),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 32),
           ],
         ),

@@ -15,12 +15,14 @@ class HomeScreen extends ConsumerWidget {
     final prayerDay = ref.watch(todayPrayerTimesProvider);
     final nextPrayer = ref.watch(nextPrayerProvider);
     final activeWindow = ref.watch(activeSilenceWindowProvider);
+    final settings = ref.watch(settingsProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: prayerDay == null
             ? _buildNoLocation(context)
-            : _buildContent(context, ref, prayerDay, nextPrayer, activeWindow != null),
+            : _buildContent(context, ref, prayerDay, nextPrayer, activeWindow != null, settings.autoSilentEnabled),
       ),
     );
   }
@@ -56,6 +58,7 @@ class HomeScreen extends ConsumerWidget {
     PrayerDay day,
     (PrayerName, DateTime)? nextPrayer,
     bool isSilenced,
+    bool autoSilentEnabled,
   ) {
     final now = DateTime.now();
     final greeting = _getGreeting(now);
@@ -88,9 +91,38 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textSecondary),
+            GestureDetector(
+              onTap: () {
+                ref.read(settingsProvider.notifier).setAutoSilentEnabled(!autoSilentEnabled);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: autoSilentEnabled
+                      ? AppColors.primary.withValues(alpha: 0.1)
+                      : AppColors.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      autoSilentEnabled ? Icons.volume_off : Icons.volume_up,
+                      size: 14,
+                      color: autoSilentEnabled ? AppColors.primary : AppColors.error,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      autoSilentEnabled ? 'ON' : 'OFF',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: autoSilentEnabled ? AppColors.primary : AppColors.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
