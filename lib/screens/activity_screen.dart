@@ -179,6 +179,10 @@ class _EventRow extends StatelessWidget {
         return AppColors.overrideBadge;
       case EventType.error:
         return const Color(0xFFFFEBEE);
+      case EventType.geofenceEnter:
+        return AppColors.silencedBadge;
+      case EventType.geofenceExit:
+        return AppColors.restoredBadge;
       default:
         return AppColors.surfaceVariant;
     }
@@ -188,6 +192,10 @@ class _EventRow extends StatelessWidget {
     switch (entry.type) {
       case EventType.silenced:
         return AppColors.primary;
+      case EventType.geofenceEnter:
+        return AppColors.primary;
+      case EventType.geofenceExit:
+        return AppColors.info;
       case EventType.restored:
         return AppColors.info;
       case EventType.overrideDetected:
@@ -213,6 +221,10 @@ class _EventRow extends StatelessWidget {
         return Icons.mosque_rounded;
       case EventType.masjidModeOff:
         return Icons.home_rounded;
+      case EventType.geofenceEnter:
+        return Icons.login_rounded;
+      case EventType.geofenceExit:
+        return Icons.logout_rounded;
       default:
         return Icons.info_outline_rounded;
     }

@@ -25,7 +25,7 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       body: _screens[_currentIndex],
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).padding.bottom + 8),
         decoration: const BoxDecoration(
           color: AppColors.background,
         ),

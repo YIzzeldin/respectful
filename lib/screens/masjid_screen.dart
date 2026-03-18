@@ -7,6 +7,7 @@ import '../core/theme.dart';
 import '../models/saved_masjid.dart';
 import '../providers/app_providers.dart';
 import '../services/event_log_service.dart';
+import 'map_picker_screen.dart';
 
 class MasjidScreen extends ConsumerWidget {
   const MasjidScreen({super.key});
@@ -25,6 +26,16 @@ class MasjidScreen extends ConsumerWidget {
             icon: const Icon(Icons.add_location_alt_rounded),
             onPressed: () => _addCurrentLocation(context, ref),
             tooltip: 'Save current location',
+          ),
+          IconButton(
+            icon: const Icon(Icons.map_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MapPickerScreen()),
+              );
+            },
+            tooltip: 'Add from map',
           ),
         ],
       ),
@@ -58,6 +69,20 @@ class MasjidScreen extends ConsumerWidget {
               onPressed: () => _addCurrentLocation(context, ref),
               icon: const Icon(Icons.my_location),
               label: const Text('Save Current Location'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MapPickerScreen()),
+                );
+              },
+              icon: const Icon(Icons.map_rounded),
+              label: const Text('Pick from Map'),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.primary),
+              ),
             ),
           ],
         ),
