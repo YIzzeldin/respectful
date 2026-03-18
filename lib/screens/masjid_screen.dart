@@ -142,9 +142,8 @@ class MasjidScreen extends ConsumerWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () {
-                // Activate masjid mode for this location
-                ref.read(masjidModeProvider.notifier).activate();
-                Navigator.pop(context);
+                // Show options for this masjid
+                _showMasjidOptions(context, ref, masjid);
               },
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -183,38 +182,7 @@ class MasjidScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, color: AppColors.textTertiary),
-                      onSelected: (action) {
-                        if (action == 'rename') {
-                          _renameMasjid(context, ref, masjid);
-                        } else if (action == 'delete') {
-                          _deleteMasjid(context, ref, masjid);
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'rename',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, size: 18),
-                              SizedBox(width: 8),
-                              Text('Rename'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, size: 18, color: AppColors.error),
-                              SizedBox(width: 8),
-                              Text('Delete', style: TextStyle(color: AppColors.error)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                    Icon(Icons.radar, size: 18, color: AppColors.primary.withValues(alpha: 0.5)),
                   ],
                 ),
               ),
@@ -340,6 +308,64 @@ class MasjidScreen extends ConsumerWidget {
             child: const Text('Save'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showMasjidOptions(BuildContext context, WidgetRef ref, SavedMasjid masjid) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              masjid.name,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${masjid.latitude.toStringAsFixed(4)}, ${masjid.longitude.toStringAsFixed(4)}',
+              style: const TextStyle(fontSize: 13, color: AppColors.textTertiary),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(Icons.radar, size: 14, color: AppColors.primary),
+                const SizedBox(width: 6),
+                Text(
+                  '200m geofence active',
+                  style: TextStyle(fontSize: 12, color: AppColors.primary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: const Text('Rename'),
+              contentPadding: EdgeInsets.zero,
+              onTap: () {
+                Navigator.pop(context);
+                _renameMasjid(context, ref, masjid);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_rounded, color: AppColors.error),
+              title: const Text('Delete', style: TextStyle(color: AppColors.error)),
+              contentPadding: EdgeInsets.zero,
+              onTap: () {
+                Navigator.pop(context);
+                _deleteMasjid(context, ref, masjid);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

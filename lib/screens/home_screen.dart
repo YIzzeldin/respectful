@@ -316,13 +316,11 @@ class _MasjidModeCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final masjidMode = ref.watch(masjidModeProvider);
     final savedMasjids = ref.watch(savedMasjidsProvider);
-    final isActive = masjidMode.isActive;
 
     return Container(
       decoration: BoxDecoration(
-        color: isActive ? AppColors.primary : AppColors.surface,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Material(
@@ -330,29 +328,11 @@ class _MasjidModeCard extends ConsumerWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            if (isActive) {
-              ref.read(masjidModeProvider.notifier).deactivate();
-            } else if (savedMasjids.isNotEmpty) {
-              // If they have saved masjids, go to the list to pick one
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MasjidScreen()),
-              );
-            } else {
-              // No saved masjids — activate immediately and offer to save
-              ref.read(masjidModeProvider.notifier).activate();
-            }
-          },
-          onLongPress: () {
-            if (isActive) {
-              ref.read(masjidModeProvider.notifier).extend();
-            } else {
-              // Long press always opens masjid management
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MasjidScreen()),
-              );
-            }
+            // Always open masjid management — geofence handles silencing automatically
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MasjidScreen()),
+            );
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -362,14 +342,12 @@ class _MasjidModeCard extends ConsumerWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: isActive
-                        ? Colors.white.withValues(alpha: 0.2)
-                        : AppColors.primary.withValues(alpha: 0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     Icons.mosque_rounded,
-                    color: isActive ? Colors.white : AppColors.primary,
+                    color: AppColors.primary,
                     size: 22,
                   ),
                 ),
@@ -379,33 +357,26 @@ class _MasjidModeCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isActive ? 'Masjid Mode Active' : "I'm at a Masjid",
+                        'My Masjids',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: isActive ? Colors.white : AppColors.textPrimary,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       Text(
-                        isActive
-                            ? 'Tap to deactivate • Long press to extend'
-                            : savedMasjids.isEmpty
-                                ? 'Tap to silence • Long press to manage'
-                                : '${savedMasjids.length} saved • Tap to select',
-                        style: TextStyle(
+                        savedMasjids.isEmpty
+                            ? 'Tap to add a masjid location'
+                            : '${savedMasjids.length} saved • auto-silence on entry',
+                        style: const TextStyle(
                           fontSize: 13,
-                          color: isActive
-                              ? Colors.white70
-                              : AppColors.textTertiary,
+                          color: AppColors.textTertiary,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(
-                  isActive ? Icons.close : Icons.chevron_right,
-                  color: isActive ? Colors.white70 : AppColors.textTertiary,
-                ),
+                const Icon(Icons.chevron_right, color: AppColors.textTertiary),
               ],
             ),
           ),
