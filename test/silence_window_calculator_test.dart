@@ -47,12 +47,12 @@ void main() {
       expect(fajrWindow.start, DateTime(2026, 3, 18, 5, 10));
     });
 
-    test('window end is prayer_time + duration + minutesAfter', () {
+    test('window end includes iqamah + duration + minutesAfter', () {
       final day = makePrayerDay();
       final windows = calculator.computeWindows(day, defaultPrefs);
       final fajrWindow = windows.first;
-      // Default Fajr: 25 min duration + 5 min after = 30 min after prayer
-      expect(fajrWindow.end, DateTime(2026, 3, 18, 5, 45));
+      // Default Fajr: azan 5:15 + 20m iqamah + 15m duration + 5m after = 5:55
+      expect(fajrWindow.end, DateTime(2026, 3, 18, 5, 55));
     });
 
     test('disabled prayer is skipped', () {
@@ -76,9 +76,9 @@ void main() {
       final dhuhrWindow = windows.firstWhere(
         (w) => w.prayer == PrayerName.jumuah,
       );
-      // Jumu'ah default: 10 min before, 45 min duration, 10 min after
+      // Jumu'ah default: 10 before, azan 12:30, +30 iqamah, +20 duration, +10 after = 13:30
       expect(dhuhrWindow.start, DateTime(2026, 3, 20, 12, 20));
-      expect(dhuhrWindow.end, DateTime(2026, 3, 20, 13, 25));
+      expect(dhuhrWindow.end, DateTime(2026, 3, 20, 13, 30));
     });
 
     test('uses Dhuhr config on non-Friday', () {
@@ -89,21 +89,22 @@ void main() {
       final dhuhrWindow = windows.firstWhere(
         (w) => w.prayer == PrayerName.dhuhr,
       );
-      // Dhuhr default: 5 min before, 20 min duration, 5 min after
+      // Dhuhr default: 5 before, azan 12:30, +15 iqamah, +15 duration, +5 after = 13:05
       expect(dhuhrWindow.start, DateTime(2026, 3, 19, 12, 25));
-      expect(dhuhrWindow.end, DateTime(2026, 3, 19, 12, 55));
+      expect(dhuhrWindow.end, DateTime(2026, 3, 19, 13, 5));
     });
   });
 
   group('Overlapping window merging', () {
     test('merges overlapping Maghrib and Isha', () {
-      // Set Maghrib with long duration so it overlaps with Isha
+      // Use iqamahOffset=0 to simplify the math for this test
       final prefs = defaultPrefs
           .withConfig(
             PrayerName.maghrib,
             const PrayerTimingConfig(
               minutesBefore: 5,
-              durationMinutes: 60, // 60 min — will overlap with Isha
+              iqamahOffsetMinutes: 0,
+              durationMinutes: 60,
               minutesAfter: 15,
             ),
           )
@@ -111,24 +112,21 @@ void main() {
             PrayerName.isha,
             const PrayerTimingConfig(
               minutesBefore: 10,
+              iqamahOffsetMinutes: 0,
               durationMinutes: 25,
               minutesAfter: 5,
             ),
           );
 
-      // Maghrib at 18:20, Isha at 19:50
-      // Maghrib window: 18:15 - 19:35 (5 before, 60 dur, 15 after)
-      // Isha window: 19:40 - 20:20 (10 before, 25 dur, 5 after)
-      // Gap of 5 min — no overlap with default times.
-      // Make Isha closer so windows overlap:
+      // Make Isha close enough to overlap:
       final closeDay = makePrayerDay(
-        isha: DateTime(2026, 3, 18, 19, 20), // Isha at 19:20 instead of 19:50
+        isha: DateTime(2026, 3, 18, 19, 20),
       );
       final closeWindows = calculator.computeWindows(closeDay, prefs);
 
-      // Maghrib window: 18:15 - 19:35
-      // Isha window: 19:10 - 19:50 (10 before 19:20)
-      // These overlap at 19:10-19:35
+      // Maghrib: 18:15 - 19:35 (5 before, 0 iqamah, 60 dur, 15 after)
+      // Isha: 19:10 - 19:50 (10 before 19:20, 0 iqamah, 25 dur, 5 after)
+      // Overlap → merged
       final mergedWindow = closeWindows.firstWhere(
         (w) => w.mergedPrayers.isNotEmpty,
         orElse: () => closeWindows.last,
@@ -189,29 +187,30 @@ void main() {
 
   group('Per-prayer customization', () {
     test('each prayer uses its own config', () {
+      // Use iqamahOffset=0 to simplify assertions
       final prefs = TimingPreferences(configs: {
         PrayerName.fajr: const PrayerTimingConfig(
-            minutesBefore: 10, durationMinutes: 30, minutesAfter: 10),
+            minutesBefore: 10, iqamahOffsetMinutes: 0, durationMinutes: 30, minutesAfter: 10),
         PrayerName.dhuhr: const PrayerTimingConfig(
-            minutesBefore: 3, durationMinutes: 15, minutesAfter: 3),
+            minutesBefore: 3, iqamahOffsetMinutes: 0, durationMinutes: 15, minutesAfter: 3),
         PrayerName.asr: const PrayerTimingConfig(
-            minutesBefore: 5, durationMinutes: 20, minutesAfter: 5),
+            minutesBefore: 5, iqamahOffsetMinutes: 0, durationMinutes: 20, minutesAfter: 5),
         PrayerName.maghrib: const PrayerTimingConfig(
-            minutesBefore: 2, durationMinutes: 10, minutesAfter: 2),
+            minutesBefore: 2, iqamahOffsetMinutes: 0, durationMinutes: 10, minutesAfter: 2),
         PrayerName.isha: const PrayerTimingConfig(
-            minutesBefore: 5, durationMinutes: 25, minutesAfter: 5),
+            minutesBefore: 5, iqamahOffsetMinutes: 0, durationMinutes: 25, minutesAfter: 5),
         PrayerName.jumuah: const PrayerTimingConfig(
-            minutesBefore: 15, durationMinutes: 60, minutesAfter: 10),
+            minutesBefore: 15, iqamahOffsetMinutes: 0, durationMinutes: 60, minutesAfter: 10),
       });
 
       final day = makePrayerDay();
       final windows = calculator.computeWindows(day, prefs);
 
-      // Fajr: 5:15 - 10 before = 5:05, + 30 + 10 = 5:55
+      // Fajr: 5:15 - 10 before = 5:05, + 0 iqamah + 30 dur + 10 after = 5:55
       expect(windows[0].start, DateTime(2026, 3, 18, 5, 5));
       expect(windows[0].end, DateTime(2026, 3, 18, 5, 55));
 
-      // Dhuhr: 12:30 - 3 before = 12:27, + 15 + 3 = 12:48
+      // Dhuhr: 12:30 - 3 before = 12:27, + 0 iqamah + 15 dur + 3 after = 12:48
       expect(windows[1].start, DateTime(2026, 3, 18, 12, 27));
       expect(windows[1].end, DateTime(2026, 3, 18, 12, 48));
     });

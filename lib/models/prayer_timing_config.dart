@@ -1,25 +1,41 @@
 import 'prayer_day.dart';
 
-/// Per-prayer timing configuration: how long before, during, and after each prayer
-/// the phone should be silenced.
+/// Per-prayer timing configuration.
+///
+/// Timeline: [minutesBefore azan] → AZAN → [iqamahOffsetMinutes] → PRAYER START → [durationMinutes] → [minutesAfter]
+///
+/// The adhan library gives us the AZAN time. The actual prayer starts
+/// iqamahOffsetMinutes later. Silence window covers the full range.
 class PrayerTimingConfig {
+  /// Minutes to silence BEFORE the azan.
   final int minutesBefore;
+
+  /// Minutes between azan and iqamah (when prayer actually starts).
+  final int iqamahOffsetMinutes;
+
+  /// Duration of the prayer itself in minutes.
   final int durationMinutes;
+
+  /// Minutes to stay silent AFTER the prayer ends.
   final int minutesAfter;
+
   final bool enabled;
 
   const PrayerTimingConfig({
     required this.minutesBefore,
+    this.iqamahOffsetMinutes = 15,
     required this.durationMinutes,
     required this.minutesAfter,
     this.enabled = true,
   });
 
   /// Total silence window length in minutes.
-  int get totalMinutes => minutesBefore + durationMinutes + minutesAfter;
+  int get totalMinutes =>
+      minutesBefore + iqamahOffsetMinutes + durationMinutes + minutesAfter;
 
   Map<String, dynamic> toJson() => {
         'minutesBefore': minutesBefore,
+        'iqamahOffsetMinutes': iqamahOffsetMinutes,
         'durationMinutes': durationMinutes,
         'minutesAfter': minutesAfter,
         'enabled': enabled,
@@ -28,43 +44,47 @@ class PrayerTimingConfig {
   factory PrayerTimingConfig.fromJson(Map<String, dynamic> json) =>
       PrayerTimingConfig(
         minutesBefore: json['minutesBefore'] as int? ?? 5,
+        iqamahOffsetMinutes: json['iqamahOffsetMinutes'] as int? ?? 15,
         durationMinutes: json['durationMinutes'] as int? ?? 20,
         minutesAfter: json['minutesAfter'] as int? ?? 5,
         enabled: json['enabled'] as bool? ?? true,
       );
 
   /// Sensible defaults per prayer.
+  /// iqamahOffset varies: Maghrib is short (5 min), Jumu'ah is long (30 min for khutbah).
   static PrayerTimingConfig defaultFor(PrayerName prayer) {
     switch (prayer) {
       case PrayerName.fajr:
         return const PrayerTimingConfig(
-            minutesBefore: 5, durationMinutes: 25, minutesAfter: 5);
+            minutesBefore: 5, iqamahOffsetMinutes: 20, durationMinutes: 15, minutesAfter: 5);
       case PrayerName.dhuhr:
         return const PrayerTimingConfig(
-            minutesBefore: 5, durationMinutes: 20, minutesAfter: 5);
+            minutesBefore: 5, iqamahOffsetMinutes: 15, durationMinutes: 15, minutesAfter: 5);
       case PrayerName.asr:
         return const PrayerTimingConfig(
-            minutesBefore: 5, durationMinutes: 20, minutesAfter: 5);
+            minutesBefore: 5, iqamahOffsetMinutes: 15, durationMinutes: 15, minutesAfter: 5);
       case PrayerName.maghrib:
         return const PrayerTimingConfig(
-            minutesBefore: 5, durationMinutes: 15, minutesAfter: 5);
+            minutesBefore: 5, iqamahOffsetMinutes: 5, durationMinutes: 10, minutesAfter: 5);
       case PrayerName.isha:
         return const PrayerTimingConfig(
-            minutesBefore: 5, durationMinutes: 25, minutesAfter: 5);
+            minutesBefore: 5, iqamahOffsetMinutes: 15, durationMinutes: 15, minutesAfter: 5);
       case PrayerName.jumuah:
         return const PrayerTimingConfig(
-            minutesBefore: 10, durationMinutes: 45, minutesAfter: 10);
+            minutesBefore: 10, iqamahOffsetMinutes: 30, durationMinutes: 20, minutesAfter: 10);
     }
   }
 
   PrayerTimingConfig copyWith({
     int? minutesBefore,
+    int? iqamahOffsetMinutes,
     int? durationMinutes,
     int? minutesAfter,
     bool? enabled,
   }) =>
       PrayerTimingConfig(
         minutesBefore: minutesBefore ?? this.minutesBefore,
+        iqamahOffsetMinutes: iqamahOffsetMinutes ?? this.iqamahOffsetMinutes,
         durationMinutes: durationMinutes ?? this.durationMinutes,
         minutesAfter: minutesAfter ?? this.minutesAfter,
         enabled: enabled ?? this.enabled,
