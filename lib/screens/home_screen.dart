@@ -18,13 +18,21 @@ class HomeScreen extends ConsumerWidget {
     final nextPrayer = ref.watch(nextPrayerProvider);
     final activeWindow = ref.watch(activeSilenceWindowProvider);
     final settings = ref.watch(settingsProvider);
+    final masjidMode = ref.watch(masjidModeProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: prayerDay == null
-            ? _buildNoLocation(context)
-            : _buildContent(context, ref, prayerDay, nextPrayer, activeWindow != null, settings),
+    // Phone is silenced if prayer window is active OR masjid mode is active
+    final isSilenced = activeWindow != null || masjidMode.isActive;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
+      color: isSilenced ? const Color(0xFF1B3A2A) : AppColors.background,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: prayerDay == null
+              ? _buildNoLocation(context)
+              : _buildContent(context, ref, prayerDay, nextPrayer, isSilenced, settings),
+        ),
       ),
     );
   }
@@ -68,6 +76,12 @@ class HomeScreen extends ConsumerWidget {
     final now = DateTime.now();
     final greeting = _getGreeting(now);
 
+    // Adaptive colors for silenced (dark) vs normal (light) mode
+    final primaryTextColor = isSilenced ? Colors.white : AppColors.textPrimary;
+    final secondaryTextColor = isSilenced ? Colors.white70 : AppColors.textSecondary;
+    final tertiaryTextColor = isSilenced ? Colors.white54 : AppColors.textTertiary;
+    final cardColor = isSilenced ? const Color(0xFF244A35) : AppColors.surface;
+
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
@@ -80,18 +94,18 @@ class HomeScreen extends ConsumerWidget {
               children: [
                 Text(
                   greeting,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
+                    color: secondaryTextColor,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   DateFormat('EEEE, d MMM yyyy').format(now),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.textTertiary,
+                    color: tertiaryTextColor,
                   ),
                 ),
               ],
@@ -245,14 +259,14 @@ class HomeScreen extends ConsumerWidget {
           children: [
             Text(
               "Today's Prayers",
-              style: Theme.of(context).textTheme.titleLarge,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: primaryTextColor),
             ),
           ],
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: cardColor,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
