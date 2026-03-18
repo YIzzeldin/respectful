@@ -246,10 +246,6 @@ class HomeScreen extends ConsumerWidget {
               "Today's Prayers",
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            Text(
-              '5 min before',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
           ],
         ),
         const SizedBox(height: 8),
