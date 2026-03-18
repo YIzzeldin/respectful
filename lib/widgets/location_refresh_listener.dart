@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_providers.dart';
 
-/// Listens for app lifecycle changes and refreshes location on resume.
-/// Wrap around the app shell to auto-detect travel.
+/// Listens for app lifecycle changes:
+/// - Refreshes location on resume (travel detection)
+/// - Checks for stale DND state (crash recovery)
 class LocationRefreshListener extends ConsumerStatefulWidget {
   final Widget child;
 
@@ -39,8 +40,10 @@ class _LocationRefreshListenerState
   }
 
   void _refreshLocation() {
-    // Invalidate to trigger a fresh check
     ref.invalidate(locationRefreshProvider);
+    // Also re-check permissions on resume
+    ref.invalidate(dndPermissionProvider);
+    ref.invalidate(exactAlarmPermissionProvider);
   }
 
   @override
