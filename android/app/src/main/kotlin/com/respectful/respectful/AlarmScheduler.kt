@@ -88,9 +88,11 @@ object AlarmScheduler {
     fun cancelAllAlarms(context: Context) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        // Cancel silence alarms (we use a range of request codes)
+        // Cancel silence alarms — action must match the original intent
         for (i in SILENCE_REQUEST_BASE..SILENCE_REQUEST_BASE + 10) {
-            val intent = Intent(context, AlarmReceiver::class.java)
+            val intent = Intent(context, AlarmReceiver::class.java).apply {
+                action = AlarmReceiver.ACTION_SILENCE
+            }
             val pi = PendingIntent.getBroadcast(
                 context, i, intent,
                 PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
@@ -100,7 +102,9 @@ object AlarmScheduler {
 
         // Cancel restore alarms
         for (i in RESTORE_REQUEST_BASE..RESTORE_REQUEST_BASE + 10) {
-            val intent = Intent(context, AlarmReceiver::class.java)
+            val intent = Intent(context, AlarmReceiver::class.java).apply {
+                action = AlarmReceiver.ACTION_RESTORE
+            }
             val pi = PendingIntent.getBroadcast(
                 context, i, intent,
                 PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
@@ -109,7 +113,9 @@ object AlarmScheduler {
         }
 
         // Cancel safety restore
-        val safetyIntent = Intent(context, AlarmReceiver::class.java)
+        val safetyIntent = Intent(context, AlarmReceiver::class.java).apply {
+            action = AlarmReceiver.ACTION_SAFETY_RESTORE
+        }
         val safetyPi = PendingIntent.getBroadcast(
             context, SAFETY_RESTORE_REQUEST, safetyIntent,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE

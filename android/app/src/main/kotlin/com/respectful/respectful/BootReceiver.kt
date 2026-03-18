@@ -36,8 +36,28 @@ class BootReceiver : BroadcastReceiver() {
                     "ringVolume" to prefs.getInt("saved_ring_volume", 5),
                     "notificationVolume" to prefs.getInt("saved_notification_volume", 5)
                 )
-                volumeService.restoreState(savedState)
-                prefs.edit().putBoolean("is_silenced", false).apply()
+                val success = volumeService.restoreState(savedState)
+                if (success) {
+                    // Full session cleanup using commit() for durability
+                    prefs.edit()
+                        .putBoolean("is_silenced", false)
+                        .putBoolean("user_overridden", false)
+                        .remove("current_prayer")
+                        .remove("silenced_at")
+                        .remove("window_end_ms")
+                        .remove("saved_ringer_mode")
+                        .remove("saved_interruption_filter")
+                        .remove("saved_ring_volume")
+                        .remove("saved_notification_volume")
+                        .remove("saved_alarm_volume")
+                        .remove("saved_media_volume")
+                        .remove("saved_captured_at")
+                        .remove("saved_change_token")
+                        .commit()
+                    Log.d(TAG, "Boot restore successful — session cleared")
+                } else {
+                    Log.e(TAG, "Boot restore FAILED — session left active for retry")
+                }
             } else if (windowEndMs > 0) {
                 // Still in silence window — re-register the restore alarm
                 Log.d(TAG, "Still in silence window — re-scheduling restore alarm")

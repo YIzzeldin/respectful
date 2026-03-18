@@ -4,7 +4,6 @@ import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioManager
 import android.os.Build
-import android.provider.Settings
 
 class VolumeControlService(private val context: Context) {
 

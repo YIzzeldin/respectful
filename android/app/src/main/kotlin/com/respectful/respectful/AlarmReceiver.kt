@@ -9,6 +9,9 @@ import android.util.Log
 /**
  * Receives exact alarm events for silence/restore actions.
  * This runs even when the app is killed — it's a manifest-registered receiver.
+ *
+ * Uses commit() instead of apply() for all critical state writes because
+ * the process may be killed immediately after onReceive() returns.
  */
 class AlarmReceiver : BroadcastReceiver() {
 
@@ -32,7 +35,8 @@ class AlarmReceiver : BroadcastReceiver() {
         when (action) {
             ACTION_SILENCE -> {
                 val prayerName = intent.getStringExtra(EXTRA_PRAYER_NAME) ?: "unknown"
-                handleSilence(volumeService, prefs, prayerName)
+                val windowEndMs = intent.getLongExtra(EXTRA_WINDOW_END_MS, 0)
+                handleSilence(volumeService, prefs, prayerName, windowEndMs)
             }
             ACTION_RESTORE, ACTION_SAFETY_RESTORE -> {
                 handleRestore(volumeService, prefs, action == ACTION_SAFETY_RESTORE)
@@ -43,37 +47,44 @@ class AlarmReceiver : BroadcastReceiver() {
     private fun handleSilence(
         volumeService: VolumeControlService,
         prefs: SharedPreferences,
-        prayerName: String
+        prayerName: String,
+        windowEndMs: Long
     ) {
         // Don't overwrite snapshot if already in a silence session
         val isAlreadySilenced = prefs.getBoolean("is_silenced", false)
         if (!isAlreadySilenced) {
             // Capture current state
             val state = volumeService.captureCurrentState()
-            val editor = prefs.edit()
-            editor.putInt("saved_ringer_mode", state["ringerMode"] as Int)
-            editor.putInt("saved_interruption_filter", state["interruptionFilter"] as Int)
-            editor.putInt("saved_ring_volume", state["ringVolume"] as Int)
-            editor.putInt("saved_notification_volume", state["notificationVolume"] as Int)
-            editor.putInt("saved_alarm_volume", state["alarmVolume"] as Int)
-            editor.putInt("saved_media_volume", state["mediaVolume"] as Int)
-            editor.putLong("saved_captured_at", state["capturedAt"] as Long)
-            editor.putString("saved_change_token", state["changeToken"] as String)
-            editor.apply()
+            prefs.edit()
+                .putInt("saved_ringer_mode", state["ringerMode"] as Int)
+                .putInt("saved_interruption_filter", state["interruptionFilter"] as Int)
+                .putInt("saved_ring_volume", state["ringVolume"] as Int)
+                .putInt("saved_notification_volume", state["notificationVolume"] as Int)
+                .putInt("saved_alarm_volume", state["alarmVolume"] as Int)
+                .putInt("saved_media_volume", state["mediaVolume"] as Int)
+                .putLong("saved_captured_at", state["capturedAt"] as Long)
+                .putString("saved_change_token", state["changeToken"] as String)
+                .commit() // commit() not apply() — process may die after onReceive
         }
 
         // Apply silence
         val success = volumeService.applySilence()
 
-        // Update state
-        val editor = prefs.edit()
-        editor.putBoolean("is_silenced", true)
-        editor.putBoolean("user_overridden", false)
-        editor.putString("current_prayer", prayerName)
-        editor.putLong("silenced_at", System.currentTimeMillis())
-        editor.apply()
+        if (!success) {
+            Log.e(TAG, "Failed to silence for $prayerName — DND permission likely missing")
+            return // Don't record a session that never started
+        }
 
-        Log.d(TAG, "Silenced for $prayerName, success=$success")
+        // Update state — persist window_end_ms for boot recovery
+        prefs.edit()
+            .putBoolean("is_silenced", true)
+            .putBoolean("user_overridden", false)
+            .putString("current_prayer", prayerName)
+            .putLong("silenced_at", System.currentTimeMillis())
+            .putLong("window_end_ms", windowEndMs)
+            .commit()
+
+        Log.d(TAG, "Silenced for $prayerName, windowEnd=${java.util.Date(windowEndMs)}")
     }
 
     private fun handleRestore(
@@ -92,8 +103,7 @@ class AlarmReceiver : BroadcastReceiver() {
         // If user manually overrode and this isn't a safety restore, skip
         if (userOverridden && !isSafetyRestore) {
             Log.d(TAG, "User overridden, skipping restore (safety=$isSafetyRestore)")
-            // Still clear the silenced state
-            prefs.edit().putBoolean("is_silenced", false).apply()
+            clearSession(prefs)
             return
         }
 
@@ -107,14 +117,32 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val success = volumeService.restoreState(savedState)
 
-        // Clear silenced state
-        val editor = prefs.edit()
-        editor.putBoolean("is_silenced", false)
-        editor.putBoolean("user_overridden", false)
-        editor.remove("current_prayer")
-        editor.remove("silenced_at")
-        editor.apply()
+        if (success) {
+            clearSession(prefs)
+            Log.d(TAG, "Restored successfully, safety=$isSafetyRestore")
+        } else {
+            // Don't clear session — restore failed (e.g. DND permission revoked).
+            // Leave is_silenced=true so boot receiver / app-open check can retry.
+            Log.e(TAG, "Restore FAILED (safety=$isSafetyRestore) — session left active for retry")
+        }
+    }
 
-        Log.d(TAG, "Restored, safety=$isSafetyRestore, success=$success")
+    /** Clear all session state. Uses commit() for durability. */
+    private fun clearSession(prefs: SharedPreferences) {
+        prefs.edit()
+            .putBoolean("is_silenced", false)
+            .putBoolean("user_overridden", false)
+            .remove("current_prayer")
+            .remove("silenced_at")
+            .remove("window_end_ms")
+            .remove("saved_ringer_mode")
+            .remove("saved_interruption_filter")
+            .remove("saved_ring_volume")
+            .remove("saved_notification_volume")
+            .remove("saved_alarm_volume")
+            .remove("saved_media_volume")
+            .remove("saved_captured_at")
+            .remove("saved_change_token")
+            .commit()
     }
 }
