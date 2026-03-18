@@ -7,6 +7,7 @@ import 'screens/onboarding_screen.dart';
 import 'widgets/location_refresh_listener.dart';
 import 'widgets/silence_engine_watcher.dart';
 import 'services/event_log_service.dart';
+import 'services/masjid_storage_service.dart';
 import 'services/storage_service.dart';
 
 void main() async {
@@ -18,11 +19,15 @@ void main() async {
   final eventLogService = EventLogService();
   await eventLogService.init();
 
+  final masjidStorage = MasjidStorageService();
+  await masjidStorage.init();
+
   runApp(
     ProviderScope(
       overrides: [
         storageServiceProvider.overrideWithValue(storageService),
         eventLogServiceProvider.overrideWithValue(eventLogService),
+        masjidStorageProvider.overrideWithValue(masjidStorage),
       ],
       child: const RespectfulApp(),
     ),

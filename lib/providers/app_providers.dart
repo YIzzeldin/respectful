@@ -8,7 +8,9 @@ import '../services/silence_scheduler.dart';
 import '../services/silence_window_calculator.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
+import '../services/masjid_storage_service.dart';
 import '../services/volume_controller.dart';
+import '../models/saved_masjid.dart';
 
 // --- Singleton services ---
 
@@ -19,6 +21,37 @@ final storageServiceProvider = Provider<StorageService>((ref) {
 final eventLogServiceProvider = Provider<EventLogService>((ref) {
   throw UnimplementedError('Must be overridden with initialized instance');
 });
+
+final masjidStorageProvider = Provider<MasjidStorageService>((ref) {
+  throw UnimplementedError('Must be overridden with initialized instance');
+});
+
+final savedMasjidsProvider =
+    StateNotifierProvider<SavedMasjidsNotifier, List<SavedMasjid>>((ref) {
+  final storage = ref.watch(masjidStorageProvider);
+  return SavedMasjidsNotifier(storage);
+});
+
+class SavedMasjidsNotifier extends StateNotifier<List<SavedMasjid>> {
+  final MasjidStorageService _storage;
+
+  SavedMasjidsNotifier(this._storage) : super(_storage.loadAll());
+
+  Future<void> add(SavedMasjid masjid) async {
+    await _storage.add(masjid);
+    state = _storage.loadAll();
+  }
+
+  Future<void> remove(String id) async {
+    await _storage.remove(id);
+    state = _storage.loadAll();
+  }
+
+  Future<void> rename(String id, String newName) async {
+    await _storage.rename(id, newName);
+    state = _storage.loadAll();
+  }
+}
 
 final volumeControllerProvider = Provider<VolumeController>((ref) {
   return VolumeController();
