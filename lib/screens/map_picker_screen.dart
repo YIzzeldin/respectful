@@ -22,12 +22,22 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
   LatLng? _selectedLocation;
   String? _addressLabel;
   bool _isLoading = false;
+  bool _locationLoaded = false;
   List<SavedMasjid> _existingMasjids = [];
 
   @override
   void initState() {
     super.initState();
     _existingMasjids = ref.read(savedMasjidsProvider);
+    _loadCurrentLocation();
+  }
+
+  Future<void> _loadCurrentLocation() async {
+    final loc = await _getCurrentLocation();
+    if (mounted && !_locationLoaded) {
+      _locationLoaded = true;
+      _mapController.move(loc, 16);
+    }
   }
 
   Future<void> _onTap(LatLng point) async {
@@ -171,9 +181,30 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.respectful.respectful',
                   ),
-                  // Existing masjid markers
+                  // Current location blue dot + existing masjid markers
                   MarkerLayer(
                     markers: [
+                      // Blue dot for current location
+                      if (snapshot.data != null)
+                        Marker(
+                          point: snapshot.data!,
+                          width: 20,
+                          height: 20,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.blue.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ..._existingMasjids.map((m) => Marker(
                             point: LatLng(m.latitude, m.longitude),
                             width: 40,
