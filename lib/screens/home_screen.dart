@@ -341,6 +341,10 @@ class HomeScreen extends ConsumerWidget {
     // Force phone back to normal — ringer + DND + clear ALL silence state
     await controller.forceRestoreNormal();
 
+    // Immediately refresh geo state so UI updates without waiting for poll
+    ref.invalidate(geoSilencedProvider);
+    ref.invalidate(activeMasjidGeofencesProvider);
+
     await eventLog.log(
       EventType.restored,
       'Master toggle OFF — phone restored to normal',
