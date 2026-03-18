@@ -9,6 +9,7 @@ class NextPrayerBanner extends StatefulWidget {
   final bool isSilenced;
   final bool timeBasedEnabled;
   final bool geofenceEnabled;
+  final bool isAtMasjid;
 
   const NextPrayerBanner({
     super.key,
@@ -17,6 +18,7 @@ class NextPrayerBanner extends StatefulWidget {
     this.isSilenced = false,
     this.timeBasedEnabled = false,
     this.geofenceEnabled = true,
+    this.isAtMasjid = false,
   });
 
   @override
@@ -48,6 +50,7 @@ class _NextPrayerBannerState extends State<NextPrayerBanner> {
   }
 
   String _getStatusText() {
+    if (widget.isAtMasjid) return 'You are at a masjid — phone silenced';
     if (widget.isSilenced) return 'Currently silenced';
     if (widget.timeBasedEnabled && widget.geofenceEnabled) {
       return 'Silences at masjid or in ${_formatDuration(_remaining)}';

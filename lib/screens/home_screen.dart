@@ -19,9 +19,10 @@ class HomeScreen extends ConsumerWidget {
     final activeWindow = ref.watch(activeSilenceWindowProvider);
     final settings = ref.watch(settingsProvider);
     final masjidMode = ref.watch(masjidModeProvider);
+    final isGeoSilenced = ref.watch(geoSilencedProvider).valueOrNull ?? false;
 
-    // Phone is silenced if prayer window is active OR masjid mode is active
-    final isSilenced = activeWindow != null || masjidMode.isActive;
+    // Phone is silenced if prayer window active OR manual masjid mode OR geofence triggered
+    final isSilenced = activeWindow != null || masjidMode.isActive || isGeoSilenced;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 500),
@@ -75,6 +76,8 @@ class HomeScreen extends ConsumerWidget {
     final allDisabled = !timeBasedSilenceEnabled && !geofenceEnabled;
     final now = DateTime.now();
     final greeting = _getGreeting(now);
+
+    final isGeoSilenced = ref.watch(geoSilencedProvider).valueOrNull ?? false;
 
     // Adaptive colors for silenced (dark) vs normal (light) mode
     final primaryTextColor = isSilenced ? Colors.white : AppColors.textPrimary;
@@ -179,10 +182,10 @@ class HomeScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 20),
 
-        // Masjid detection banner — shows when masjid mode is active
+        // Masjid detection banner — shows when at a masjid (geofence or manual)
         Builder(builder: (context) {
           final masjidMode = ref.watch(masjidModeProvider);
-          if (!masjidMode.isActive) return const SizedBox.shrink();
+          if (!masjidMode.isActive && !isGeoSilenced) return const SizedBox.shrink();
 
           return Container(
             width: double.infinity,
@@ -208,16 +211,18 @@ class HomeScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Masjid Mode Active',
-                        style: TextStyle(
+                      Text(
+                        isGeoSilenced ? 'You are at a masjid' : 'Masjid Mode Active',
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
                       ),
                       Text(
-                        'Phone silenced${masjidMode.remainingTime != null ? ' — ${masjidMode.remainingTime!.inMinutes}m remaining' : ''}',
+                        isGeoSilenced
+                            ? 'Phone silenced — auto-detected by geofence'
+                            : 'Phone silenced${masjidMode.remainingTime != null ? ' — ${masjidMode.remainingTime!.inMinutes}m remaining' : ''}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.white70,
@@ -250,6 +255,7 @@ class HomeScreen extends ConsumerWidget {
             isSilenced: isSilenced,
             timeBasedEnabled: timeBasedSilenceEnabled,
             geofenceEnabled: geofenceEnabled,
+            isAtMasjid: isGeoSilenced,
           ),
         const SizedBox(height: 24),
 

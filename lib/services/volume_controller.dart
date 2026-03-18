@@ -107,4 +107,15 @@ class VolumeController {
   Future<bool> hasBackgroundLocationPermission() async {
     return await _channel.invokeMethod<bool>('hasBackgroundLocationPermission') ?? false;
   }
+
+  /// Check if phone is currently silenced by a geofence (native side).
+  Future<bool> isGeoSilenced() async {
+    return await _channel.invokeMethod<bool>('isGeoSilenced') ?? false;
+  }
+
+  /// Get the IDs of masjids currently inside geofence.
+  Future<List<String>> getActiveMasjidGeofences() async {
+    final result = await _channel.invokeMethod<List>('getActiveMasjidGeofences');
+    return result?.cast<String>() ?? [];
+  }
 }

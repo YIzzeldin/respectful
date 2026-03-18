@@ -280,6 +280,21 @@ final autoScheduleProvider = FutureProvider<void>((ref) async {
   );
 });
 
+// --- Geofence State (reads native geo_silenced flag) ---
+// Polls every 30 seconds to detect native geofence enter/exit events.
+
+final geoSilencedProvider = FutureProvider<bool>((ref) async {
+  ref.watch(currentMinuteProvider); // refresh every 30s
+  final controller = ref.read(volumeControllerProvider);
+  return controller.isGeoSilenced();
+});
+
+final activeMasjidGeofencesProvider = FutureProvider<List<String>>((ref) async {
+  ref.watch(currentMinuteProvider);
+  final controller = ref.read(volumeControllerProvider);
+  return controller.getActiveMasjidGeofences();
+});
+
 // --- Geofence Auto-Registration ---
 // Watches saved masjids and auto-registers geofences when the list changes.
 

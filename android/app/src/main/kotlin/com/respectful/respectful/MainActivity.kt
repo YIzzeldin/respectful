@@ -138,6 +138,15 @@ class MainActivity : FlutterActivity() {
                     ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                     result.success(granted)
                 }
+                "isGeoSilenced" -> {
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    result.success(prefs.getBoolean("geo_silenced", false))
+                }
+                "getActiveMasjidGeofences" -> {
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    val set = prefs.getStringSet("active_masjid_geofences", emptySet()) ?: emptySet()
+                    result.success(set.toList())
+                }
                 else -> {
                     result.notImplemented()
                 }
