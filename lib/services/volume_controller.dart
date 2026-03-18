@@ -88,4 +88,23 @@ class VolumeController {
   Future<void> cancelAllAlarms() async {
     await _channel.invokeMethod('cancelAllAlarms');
   }
+
+  /// Register geofences for saved masjid locations.
+  Future<bool> registerGeofences(List<Map<String, dynamic>> masjids) async {
+    return await _channel.invokeMethod<bool>(
+          'registerGeofences',
+          {'masjids': masjids},
+        ) ??
+        false;
+  }
+
+  /// Remove all registered geofences.
+  Future<void> removeAllGeofences() async {
+    await _channel.invokeMethod('removeAllGeofences');
+  }
+
+  /// Check if background location permission is granted.
+  Future<bool> hasBackgroundLocationPermission() async {
+    return await _channel.invokeMethod<bool>('hasBackgroundLocationPermission') ?? false;
+  }
 }

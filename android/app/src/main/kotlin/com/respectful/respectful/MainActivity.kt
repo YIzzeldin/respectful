@@ -92,11 +92,38 @@ class MainActivity : FlutterActivity() {
                         val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                         startActivity(intent)
                     } catch (e: Exception) {
-                        // Fallback to general settings
                         val intent = Intent(Settings.ACTION_SETTINGS)
                         startActivity(intent)
                     }
                     result.success(true)
+                }
+                "registerGeofences" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val masjidsRaw = call.argument<List<Map<String, Any>>>("masjids") ?: emptyList()
+                    val masjids = masjidsRaw.map { m ->
+                        MasjidLocation(
+                            id = m["id"] as String,
+                            name = m["name"] as String,
+                            latitude = (m["latitude"] as Number).toDouble(),
+                            longitude = (m["longitude"] as Number).toDouble(),
+                        )
+                    }
+                    GeofenceManager.registerGeofences(
+                        this, masjids,
+                        onSuccess = { result.success(true) },
+                        onFailure = { error -> result.success(false) },
+                    )
+                }
+                "removeAllGeofences" -> {
+                    GeofenceManager.removeAllGeofences(this)
+                    result.success(true)
+                }
+                "hasBackgroundLocationPermission" -> {
+                    val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+                        this,
+                        android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    result.success(granted)
                 }
                 else -> {
                     result.notImplemented()
