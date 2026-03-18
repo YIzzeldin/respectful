@@ -291,6 +291,11 @@ final autoGeofenceProvider = FutureProvider<void>((ref) async {
   final hasBgLocation = await controller.hasBackgroundLocationPermission();
   if (!hasBgLocation) return; // Can't register without background location
 
+  // Always remove all first, then re-add. This ensures deleted masjids
+  // don't keep stale geofences active (addGeofences only replaces by ID,
+  // it doesn't remove IDs that are no longer in the list).
+  await controller.removeAllGeofences();
+
   final masjidMaps = masjids
       .map((m) => {
             'id': m.id,

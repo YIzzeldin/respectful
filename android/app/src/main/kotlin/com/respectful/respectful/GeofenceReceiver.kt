@@ -102,7 +102,16 @@ class GeofenceReceiver : BroadcastReceiver() {
             // Left all masjids — restore if not silenced by prayer time
             val isSilencedByPrayer = prefs.getBoolean("is_silenced", false)
 
-            if (!isSilencedByPrayer) {
+            // Check if user manually changed DND while at the masjid
+            // (same pattern as prayer-time user_overridden)
+            val currentFilter = volumeService.getCurrentInterruptionFilter()
+            val wasOverridden = currentFilter != android.app.NotificationManager.INTERRUPTION_FILTER_NONE
+                    && currentFilter != android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY
+
+            if (wasOverridden) {
+                // User manually changed DND during visit — respect their choice
+                Log.d(TAG, "Exited masjid but user overrode DND — respecting override")
+            } else if (!isSilencedByPrayer) {
                 // Restore to pre-masjid state
                 val savedState = mapOf(
                     "ringerMode" to prefs.getInt("geo_saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
