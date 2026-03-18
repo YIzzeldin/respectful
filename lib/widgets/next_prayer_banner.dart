@@ -7,12 +7,14 @@ class NextPrayerBanner extends StatefulWidget {
   final PrayerName prayer;
   final DateTime prayerTime;
   final bool isSilenced;
+  final bool timeBasedEnabled;
 
   const NextPrayerBanner({
     super.key,
     required this.prayer,
     required this.prayerTime,
     this.isSilenced = false,
+    this.timeBasedEnabled = false,
   });
 
   @override
@@ -134,35 +136,37 @@ class _NextPrayerBannerState extends State<NextPrayerBanner> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  widget.isSilenced ? Icons.volume_off : Icons.notifications_active,
-                  size: 14,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  widget.isSilenced
-                      ? 'Currently silenced'
-                      : 'Auto-silence in ${_formatDuration(_remaining)}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+          if (widget.isSilenced || widget.timeBasedEnabled) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    widget.isSilenced ? Icons.volume_off : Icons.notifications_active,
+                    size: 14,
                     color: Colors.white,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.isSilenced
+                        ? 'Currently silenced'
+                        : 'Auto-silence in ${_formatDuration(_remaining)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
             ),
           ),
+          ],
         ],
       ),
     );

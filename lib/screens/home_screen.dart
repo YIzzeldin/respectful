@@ -198,6 +198,7 @@ class HomeScreen extends ConsumerWidget {
             prayer: nextPrayer.$1,
             prayerTime: nextPrayer.$2,
             isSilenced: isSilenced,
+            timeBasedEnabled: timeBasedSilenceEnabled,
           ),
         const SizedBox(height: 24),
 
