@@ -23,14 +23,33 @@ class SettingsScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           children: [
             // Header
-            Row(
+            Text('Settings', style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 24),
+
+            // Silence Modes — geofence ON by default, time-based OFF by default
+            _SectionCard(
+              title: 'Silence Modes',
               children: [
-                const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                const SizedBox(width: 12),
-                Text('Settings', style: Theme.of(context).textTheme.headlineMedium),
+                _ToggleRow(
+                  icon: Icons.mosque_rounded,
+                  label: 'Masjid Detection',
+                  subtitle: 'Auto-silence when near a saved masjid',
+                  value: settings.geofenceSilenceEnabled,
+                  onChanged: (v) => ref.read(settingsProvider.notifier)
+                      .setGeofenceSilenceEnabled(v),
+                ),
+                const Divider(height: 20),
+                _ToggleRow(
+                  icon: Icons.schedule_rounded,
+                  label: 'Time-Based Silence',
+                  subtitle: 'Auto-silence at prayer times',
+                  value: settings.timeBasedSilenceEnabled,
+                  onChanged: (v) => ref.read(settingsProvider.notifier)
+                      .setTimeBasedSilenceEnabled(v),
+                ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
             // Silence Level
             _SectionCard(
@@ -56,25 +75,25 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
+            // Timing sections — only visible when time-based silence is ON
+            if (settings.timeBasedSilenceEnabled) ...[
             // Default Timing — show range across all prayers
             Builder(builder: (context) {
               final configs = [PrayerName.fajr, PrayerName.dhuhr, PrayerName.asr,
                   PrayerName.maghrib, PrayerName.isha]
                   .map((p) => settings.timingPreferences.configFor(p))
                   .toList();
-              final beforeMin = configs.map((c) => c.minutesBefore).reduce((a, b) => a < b ? a : b);
-              final beforeMax = configs.map((c) => c.minutesBefore).reduce((a, b) => a > b ? a : b);
-              final durMin = configs.map((c) => c.durationMinutes).reduce((a, b) => a < b ? a : b);
-              final durMax = configs.map((c) => c.durationMinutes).reduce((a, b) => a > b ? a : b);
+              final beforeMin = configs.map((c) => c.minutesBeforeIqamah).reduce((a, b) => a < b ? a : b);
+              final beforeMax = configs.map((c) => c.minutesBeforeIqamah).reduce((a, b) => a > b ? a : b);
               final afterMin = configs.map((c) => c.minutesAfter).reduce((a, b) => a < b ? a : b);
               final afterMax = configs.map((c) => c.minutesAfter).reduce((a, b) => a > b ? a : b);
 
               return _SectionCard(
                 title: 'Default Timing',
                 children: [
-                  _TimingRow(label: 'Before prayer', value: beforeMin, unit: beforeMin == beforeMax ? 'min' : '-$beforeMax min'),
+                  _TimingRow(label: 'Before iqamah', value: beforeMin, unit: beforeMin == beforeMax ? 'min' : '-$beforeMax min'),
                   const Divider(height: 24),
-                  _TimingRow(label: 'Prayer duration', value: durMin, unit: durMin == durMax ? 'min' : '-$durMax min'),
+                  _TimingRow(label: 'Prayer duration', value: PrayerTimingConfig.prayerDurationMinutes, unit: 'min (fixed)'),
                   const Divider(height: 24),
                   _TimingRow(label: 'After prayer', value: afterMin, unit: afterMin == afterMax ? 'min' : '-$afterMax min'),
                 ],
@@ -102,6 +121,7 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
+            ], // end of timeBasedSilenceEnabled block
 
             // Calculation Method
             _SectionCard(
@@ -295,6 +315,46 @@ class _SilenceLevelOption extends StatelessWidget {
   }
 }
 
+class _ToggleRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _ToggleRow({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: value ? AppColors.primary : AppColors.textTertiary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+              Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+            ],
+          ),
+        ),
+        Switch(
+          value: value,
+          activeTrackColor: AppColors.primary,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+}
+
 class _TimingRow extends StatelessWidget {
   final String label;
   final int value;
@@ -359,8 +419,9 @@ class _PerPrayerTimingCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${config.minutesBefore}m before · ${config.iqamahOffsetMinutes}m iqamah · '
-                      '${config.durationMinutes}m prayer · ${config.minutesAfter}m after',
+                      '${config.minutesBeforeIqamah}m before iqamah · '
+                      '${PrayerTimingConfig.prayerDurationMinutes}m prayer · '
+                      '${config.minutesAfter}m after',
                       style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
                     ),
                   ],
@@ -428,23 +489,19 @@ class _TimingEditorSheet extends StatefulWidget {
 }
 
 class _TimingEditorSheetState extends State<_TimingEditorSheet> {
-  late int _minutesBefore;
-  late int _iqamahOffset;
-  late int _duration;
+  late int _beforeIqamah;
   late int _minutesAfter;
   late bool _enabled;
 
   @override
   void initState() {
     super.initState();
-    _minutesBefore = widget.initialConfig.minutesBefore;
-    _iqamahOffset = widget.initialConfig.iqamahOffsetMinutes;
-    _duration = widget.initialConfig.durationMinutes;
+    _beforeIqamah = widget.initialConfig.minutesBeforeIqamah;
     _minutesAfter = widget.initialConfig.minutesAfter;
     _enabled = widget.initialConfig.enabled;
   }
 
-  int get _total => _minutesBefore + _iqamahOffset + _duration + _minutesAfter;
+  int get _total => _beforeIqamah + PrayerTimingConfig.prayerDurationMinutes + _minutesAfter;
 
   @override
   Widget build(BuildContext context) {
@@ -478,9 +535,9 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Timeline: Before Azan → Azan → Iqamah → Prayer → After',
-            style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+          Text(
+            'Prayer duration: ${PrayerTimingConfig.prayerDurationMinutes} min (fixed)',
+            style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
           const SizedBox(height: 24),
 
@@ -498,27 +555,13 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
           ),
           const SizedBox(height: 16),
 
-          // Sliders
+          // Sliders — just 2 settings
           _SliderRow(
-            label: 'Before azan',
-            value: _minutesBefore,
+            label: 'Before iqamah',
+            value: _beforeIqamah,
             min: 0,
-            max: 30,
-            onChanged: (v) => setState(() => _minutesBefore = v),
-          ),
-          _SliderRow(
-            label: 'Azan to iqamah',
-            value: _iqamahOffset,
-            min: 0,
-            max: 45,
-            onChanged: (v) => setState(() => _iqamahOffset = v),
-          ),
-          _SliderRow(
-            label: 'Prayer duration',
-            value: _duration,
-            min: 5,
             max: 60,
-            onChanged: (v) => setState(() => _duration = v),
+            onChanged: (v) => setState(() => _beforeIqamah = v),
           ),
           _SliderRow(
             label: 'After prayer',
@@ -536,9 +579,8 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
             child: ElevatedButton(
               onPressed: () {
                 widget.onSave(PrayerTimingConfig(
-                  minutesBefore: _minutesBefore,
-                  iqamahOffsetMinutes: _iqamahOffset,
-                  durationMinutes: _duration,
+                  minutesBeforeIqamah: _beforeIqamah,
+                  iqamahOffsetMinutes: widget.initialConfig.iqamahOffsetMinutes,
                   minutesAfter: _minutesAfter,
                   enabled: _enabled,
                 ));
@@ -553,9 +595,7 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
               onPressed: () {
                 final defaultConfig = PrayerTimingConfig.defaultFor(widget.prayer);
                 setState(() {
-                  _minutesBefore = defaultConfig.minutesBefore;
-                  _iqamahOffset = defaultConfig.iqamahOffsetMinutes;
-                  _duration = defaultConfig.durationMinutes;
+                  _beforeIqamah = defaultConfig.minutesBeforeIqamah;
                   _minutesAfter = defaultConfig.minutesAfter;
                   _enabled = defaultConfig.enabled;
                 });

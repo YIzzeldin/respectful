@@ -2,101 +2,118 @@ import 'prayer_day.dart';
 
 /// Per-prayer timing configuration.
 ///
-/// Timeline: [minutesBefore azan] → AZAN → [iqamahOffsetMinutes] → PRAYER START → [durationMinutes] → [minutesAfter]
+/// Simplified model: user only controls two things:
+///   1. Minutes to silence BEFORE the iqamah
+///   2. Minutes to stay silent AFTER the prayer
 ///
-/// The adhan library gives us the AZAN time. The actual prayer starts
-/// iqamahOffsetMinutes later. Silence window covers the full range.
+/// Prayer duration is fixed at 10 minutes (not user-configurable).
+///
+/// Timeline: [minutesBeforeIqamah] → IQAMAH → [10 min prayer] → [minutesAfter]
+///
+/// The adhan library gives us the AZAN time. We add iqamahOffsetMinutes
+/// (the gap between azan and iqamah, per prayer) to get the iqamah time.
+/// Then the silence window starts minutesBeforeIqamah before that.
 class PrayerTimingConfig {
-  /// Minutes to silence BEFORE the azan.
-  final int minutesBefore;
+  /// Minutes to silence BEFORE the iqamah (prayer start).
+  final int minutesBeforeIqamah;
 
-  /// Minutes between azan and iqamah (when prayer actually starts).
+  /// Minutes between azan and iqamah. This is a fixed per-prayer value,
+  /// not directly user-configurable (set via defaults or advanced settings).
   final int iqamahOffsetMinutes;
-
-  /// Duration of the prayer itself in minutes.
-  final int durationMinutes;
 
   /// Minutes to stay silent AFTER the prayer ends.
   final int minutesAfter;
 
   final bool enabled;
 
+  /// Fixed prayer duration — not user-configurable.
+  static const int prayerDurationMinutes = 10;
+
   const PrayerTimingConfig({
-    required this.minutesBefore,
+    required this.minutesBeforeIqamah,
     this.iqamahOffsetMinutes = 15,
-    required this.durationMinutes,
     required this.minutesAfter,
     this.enabled = true,
   });
 
   /// Total silence window length in minutes.
   int get totalMinutes =>
-      minutesBefore + iqamahOffsetMinutes + durationMinutes + minutesAfter;
+      minutesBeforeIqamah + prayerDurationMinutes + minutesAfter;
+
+  /// The full window from azan perspective (used by silence window calculator).
+  /// Silence starts at: azan_time + iqamahOffset - minutesBeforeIqamah
+  /// Silence ends at: azan_time + iqamahOffset + prayerDuration + minutesAfter
+  int get minutesBeforeAzan {
+    final beforeIqamahFromAzan = iqamahOffsetMinutes - minutesBeforeIqamah;
+    return beforeIqamahFromAzan < 0 ? -beforeIqamahFromAzan : 0;
+  }
 
   Map<String, dynamic> toJson() => {
-        'minutesBefore': minutesBefore,
+        'minutesBeforeIqamah': minutesBeforeIqamah,
         'iqamahOffsetMinutes': iqamahOffsetMinutes,
-        'durationMinutes': durationMinutes,
         'minutesAfter': minutesAfter,
         'enabled': enabled,
       };
 
-  /// Deserialize. If iqamahOffsetMinutes is missing (pre-migration data),
-  /// the caller should provide the prayer name for correct defaults.
   factory PrayerTimingConfig.fromJson(Map<String, dynamic> json, [PrayerName? prayer]) {
-    // If iqamahOffsetMinutes is absent in stored data, use prayer-specific default
-    final hasIqamah = json.containsKey('iqamahOffsetMinutes');
-    final defaultIqamah = prayer != null
-        ? PrayerTimingConfig.defaultFor(prayer).iqamahOffsetMinutes
-        : 15;
+    final defaultConfig = prayer != null
+        ? PrayerTimingConfig.defaultFor(prayer)
+        : const PrayerTimingConfig(minutesBeforeIqamah: 10, minutesAfter: 5);
 
+    // Migration: handle old format with minutesBefore/durationMinutes
+    if (json.containsKey('minutesBeforeIqamah')) {
+      return PrayerTimingConfig(
+        minutesBeforeIqamah: json['minutesBeforeIqamah'] as int? ?? defaultConfig.minutesBeforeIqamah,
+        iqamahOffsetMinutes: json['iqamahOffsetMinutes'] as int? ?? defaultConfig.iqamahOffsetMinutes,
+        minutesAfter: json['minutesAfter'] as int? ?? defaultConfig.minutesAfter,
+        enabled: json['enabled'] as bool? ?? true,
+      );
+    }
+
+    // Old format migration: convert minutesBefore + iqamahOffset to minutesBeforeIqamah
+    final oldBefore = json['minutesBefore'] as int? ?? 5;
+    final oldIqamah = json['iqamahOffsetMinutes'] as int? ?? defaultConfig.iqamahOffsetMinutes;
     return PrayerTimingConfig(
-      minutesBefore: json['minutesBefore'] as int? ?? 5,
-      iqamahOffsetMinutes: hasIqamah
-          ? json['iqamahOffsetMinutes'] as int
-          : defaultIqamah,
-      durationMinutes: json['durationMinutes'] as int? ?? 20,
+      minutesBeforeIqamah: oldBefore + oldIqamah, // combine into single "before iqamah"
+      iqamahOffsetMinutes: oldIqamah,
       minutesAfter: json['minutesAfter'] as int? ?? 5,
       enabled: json['enabled'] as bool? ?? true,
     );
   }
 
   /// Sensible defaults per prayer.
-  /// iqamahOffset varies: Maghrib is short (5 min), Jumu'ah is long (30 min for khutbah).
   static PrayerTimingConfig defaultFor(PrayerName prayer) {
     switch (prayer) {
       case PrayerName.fajr:
         return const PrayerTimingConfig(
-            minutesBefore: 5, iqamahOffsetMinutes: 20, durationMinutes: 15, minutesAfter: 5);
+            minutesBeforeIqamah: 25, iqamahOffsetMinutes: 20, minutesAfter: 5);
       case PrayerName.dhuhr:
         return const PrayerTimingConfig(
-            minutesBefore: 5, iqamahOffsetMinutes: 15, durationMinutes: 15, minutesAfter: 5);
+            minutesBeforeIqamah: 20, iqamahOffsetMinutes: 15, minutesAfter: 5);
       case PrayerName.asr:
         return const PrayerTimingConfig(
-            minutesBefore: 5, iqamahOffsetMinutes: 15, durationMinutes: 15, minutesAfter: 5);
+            minutesBeforeIqamah: 20, iqamahOffsetMinutes: 15, minutesAfter: 5);
       case PrayerName.maghrib:
         return const PrayerTimingConfig(
-            minutesBefore: 5, iqamahOffsetMinutes: 5, durationMinutes: 10, minutesAfter: 5);
+            minutesBeforeIqamah: 10, iqamahOffsetMinutes: 5, minutesAfter: 5);
       case PrayerName.isha:
         return const PrayerTimingConfig(
-            minutesBefore: 5, iqamahOffsetMinutes: 15, durationMinutes: 15, minutesAfter: 5);
+            minutesBeforeIqamah: 20, iqamahOffsetMinutes: 15, minutesAfter: 5);
       case PrayerName.jumuah:
         return const PrayerTimingConfig(
-            minutesBefore: 10, iqamahOffsetMinutes: 30, durationMinutes: 20, minutesAfter: 10);
+            minutesBeforeIqamah: 40, iqamahOffsetMinutes: 30, minutesAfter: 10);
     }
   }
 
   PrayerTimingConfig copyWith({
-    int? minutesBefore,
+    int? minutesBeforeIqamah,
     int? iqamahOffsetMinutes,
-    int? durationMinutes,
     int? minutesAfter,
     bool? enabled,
   }) =>
       PrayerTimingConfig(
-        minutesBefore: minutesBefore ?? this.minutesBefore,
+        minutesBeforeIqamah: minutesBeforeIqamah ?? this.minutesBeforeIqamah,
         iqamahOffsetMinutes: iqamahOffsetMinutes ?? this.iqamahOffsetMinutes,
-        durationMinutes: durationMinutes ?? this.durationMinutes,
         minutesAfter: minutesAfter ?? this.minutesAfter,
         enabled: enabled ?? this.enabled,
       );

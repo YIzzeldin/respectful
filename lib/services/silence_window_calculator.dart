@@ -34,13 +34,14 @@ class SilenceWindowCalculator {
               ? PrayerName.jumuah
               : prayer;
 
-      // Timeline: [minutesBefore] → AZAN → [iqamahOffset] → PRAYER → [duration] → [minutesAfter]
       // prayerTime from adhan = azan time
-      final start =
-          prayerTime.subtract(Duration(minutes: config.minutesBefore));
-      final end = prayerTime.add(Duration(
-          minutes: config.iqamahOffsetMinutes +
-              config.durationMinutes +
+      // iqamah time = azan + iqamahOffsetMinutes
+      // Silence starts: iqamah - minutesBeforeIqamah = azan + iqamahOffset - beforeIqamah
+      // Silence ends: iqamah + prayerDuration + minutesAfter
+      final iqamahTime = prayerTime.add(Duration(minutes: config.iqamahOffsetMinutes));
+      final start = iqamahTime.subtract(Duration(minutes: config.minutesBeforeIqamah));
+      final end = iqamahTime.add(Duration(
+          minutes: PrayerTimingConfig.prayerDurationMinutes +
               config.minutesAfter));
 
       windows.add(SilenceWindow(
@@ -67,12 +68,12 @@ class SilenceWindowCalculator {
     if (fajrConfig.enabled) {
       final fajrTime = tomorrow.timeForPrayer(PrayerName.fajr);
       if (fajrTime != null) {
+        final fajrIqamah = fajrTime.add(Duration(minutes: fajrConfig.iqamahOffsetMinutes));
         final fajrWindow = SilenceWindow(
           prayer: PrayerName.fajr,
-          start: fajrTime.subtract(Duration(minutes: fajrConfig.minutesBefore)),
-          end: fajrTime.add(Duration(
-              minutes: fajrConfig.iqamahOffsetMinutes +
-                  fajrConfig.durationMinutes +
+          start: fajrIqamah.subtract(Duration(minutes: fajrConfig.minutesBeforeIqamah)),
+          end: fajrIqamah.add(Duration(
+              minutes: PrayerTimingConfig.prayerDurationMinutes +
                   fajrConfig.minutesAfter)),
         );
         // Only add if it doesn't overlap with today's windows

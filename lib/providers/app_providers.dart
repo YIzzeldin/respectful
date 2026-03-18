@@ -129,8 +129,12 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     await updateSettings(state.copyWith(calculationMethod: method));
   }
 
-  Future<void> setAutoSilentEnabled(bool enabled) async {
-    await updateSettings(state.copyWith(autoSilentEnabled: enabled));
+  Future<void> setTimeBasedSilenceEnabled(bool enabled) async {
+    await updateSettings(state.copyWith(timeBasedSilenceEnabled: enabled));
+  }
+
+  Future<void> setGeofenceSilenceEnabled(bool enabled) async {
+    await updateSettings(state.copyWith(geofenceSilenceEnabled: enabled));
   }
 
   Future<void> setSilenceLevel(SilenceLevel level) async {
@@ -243,7 +247,7 @@ final autoScheduleProvider = FutureProvider<void>((ref) async {
   final windows = ref.watch(silenceWindowsProvider);
   final settings = ref.watch(settingsProvider);
 
-  if (!settings.autoSilentEnabled || windows.isEmpty) {
+  if (!settings.timeBasedSilenceEnabled || windows.isEmpty) {
     // Cancel any existing alarms when disabled
     if (_lastScheduledHash != 0) {
       final scheduler = ref.read(silenceSchedulerProvider);
@@ -281,9 +285,10 @@ final autoScheduleProvider = FutureProvider<void>((ref) async {
 
 final autoGeofenceProvider = FutureProvider<void>((ref) async {
   final masjids = ref.watch(savedMasjidsProvider);
+  final settings = ref.watch(settingsProvider);
   final controller = ref.read(volumeControllerProvider);
 
-  if (masjids.isEmpty) {
+  if (masjids.isEmpty || !settings.geofenceSilenceEnabled) {
     await controller.removeAllGeofences();
     return;
   }
@@ -433,7 +438,7 @@ class MasjidModeNotifier extends StateNotifier<MasjidModeState> {
     // Reschedule prayer alarms (masjid deactivation doesn't change silence windows,
     // so autoScheduleProvider won't re-run. We must manually reschedule.)
     final settings = _getSettings();
-    if (settings.autoSilentEnabled) {
+    if (settings.timeBasedSilenceEnabled) {
       final windows = _getWindows();
       if (windows.isNotEmpty) {
         await _scheduler.scheduleAll(windows);

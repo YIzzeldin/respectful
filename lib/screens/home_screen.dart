@@ -23,7 +23,7 @@ class HomeScreen extends ConsumerWidget {
       body: SafeArea(
         child: prayerDay == null
             ? _buildNoLocation(context)
-            : _buildContent(context, ref, prayerDay, nextPrayer, activeWindow != null, settings.autoSilentEnabled),
+            : _buildContent(context, ref, prayerDay, nextPrayer, activeWindow != null, settings.timeBasedSilenceEnabled),
       ),
     );
   }
@@ -59,7 +59,7 @@ class HomeScreen extends ConsumerWidget {
     PrayerDay day,
     (PrayerName, DateTime)? nextPrayer,
     bool isSilenced,
-    bool autoSilentEnabled,
+    bool timeBasedSilenceEnabled,
   ) {
     final now = DateTime.now();
     final greeting = _getGreeting(now);
@@ -94,12 +94,12 @@ class HomeScreen extends ConsumerWidget {
             ),
             GestureDetector(
               onTap: () {
-                ref.read(settingsProvider.notifier).setAutoSilentEnabled(!autoSilentEnabled);
+                ref.read(settingsProvider.notifier).setTimeBasedSilenceEnabled(!timeBasedSilenceEnabled);
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: autoSilentEnabled
+                  color: timeBasedSilenceEnabled
                       ? AppColors.primary.withValues(alpha: 0.1)
                       : AppColors.error.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -108,17 +108,17 @@ class HomeScreen extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      autoSilentEnabled ? Icons.volume_off : Icons.volume_up,
+                      timeBasedSilenceEnabled ? Icons.volume_off : Icons.volume_up,
                       size: 14,
-                      color: autoSilentEnabled ? AppColors.primary : AppColors.error,
+                      color: timeBasedSilenceEnabled ? AppColors.primary : AppColors.error,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      autoSilentEnabled ? 'ON' : 'OFF',
+                      timeBasedSilenceEnabled ? 'ON' : 'OFF',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: autoSilentEnabled ? AppColors.primary : AppColors.error,
+                        color: timeBasedSilenceEnabled ? AppColors.primary : AppColors.error,
                       ),
                     ),
                   ],

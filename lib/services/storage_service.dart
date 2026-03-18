@@ -8,6 +8,7 @@ class StorageService {
   static const _keyCalculationMethod = 'calculation_method';
   static const _keyTimingPreferences = 'timing_preferences';
   static const _keyAutoSilentEnabled = 'auto_silent_enabled';
+  static const _keyGeofenceSilenceEnabled = 'geofence_silence_enabled';
   static const _keySilenceLevel = 'silence_level';
   static const _keyUsePerPrayerConfig = 'use_per_prayer_config';
   static const _keyOnboardingComplete = 'onboarding_complete';
@@ -37,7 +38,8 @@ class StorageService {
           ? TimingPreferences.fromJson(
               jsonDecode(timingJson) as Map<String, dynamic>)
           : TimingPreferences.defaults(),
-      autoSilentEnabled: _prefs.getBool(_keyAutoSilentEnabled) ?? true,
+      timeBasedSilenceEnabled: _prefs.getBool(_keyAutoSilentEnabled) ?? false,
+      geofenceSilenceEnabled: _prefs.getBool(_keyGeofenceSilenceEnabled) ?? true,
       silenceLevel: _enumByName(
         SilenceLevel.values,
         silenceLevelName,
@@ -56,7 +58,8 @@ class StorageService {
         _keyCalculationMethod, settings.calculationMethod.name);
     await _prefs.setString(
         _keyTimingPreferences, jsonEncode(settings.timingPreferences.toJson()));
-    await _prefs.setBool(_keyAutoSilentEnabled, settings.autoSilentEnabled);
+    await _prefs.setBool(_keyAutoSilentEnabled, settings.timeBasedSilenceEnabled);
+    await _prefs.setBool(_keyGeofenceSilenceEnabled, settings.geofenceSilenceEnabled);
     await _prefs.setString(_keySilenceLevel, settings.silenceLevel.name);
     await _prefs.setBool(_keyUsePerPrayerConfig, settings.usePerPrayerConfig);
     await _prefs.setBool(_keyOnboardingComplete, settings.onboardingComplete);
