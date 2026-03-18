@@ -71,7 +71,9 @@ class SilenceWindowCalculator {
           prayer: PrayerName.fajr,
           start: fajrTime.subtract(Duration(minutes: fajrConfig.minutesBefore)),
           end: fajrTime.add(Duration(
-              minutes: fajrConfig.durationMinutes + fajrConfig.minutesAfter)),
+              minutes: fajrConfig.iqamahOffsetMinutes +
+                  fajrConfig.durationMinutes +
+                  fajrConfig.minutesAfter)),
         );
         // Only add if it doesn't overlap with today's windows
         // (edge case: Isha extends past midnight into Fajr territory)

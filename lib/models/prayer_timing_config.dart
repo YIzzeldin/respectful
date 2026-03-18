@@ -41,14 +41,25 @@ class PrayerTimingConfig {
         'enabled': enabled,
       };
 
-  factory PrayerTimingConfig.fromJson(Map<String, dynamic> json) =>
-      PrayerTimingConfig(
-        minutesBefore: json['minutesBefore'] as int? ?? 5,
-        iqamahOffsetMinutes: json['iqamahOffsetMinutes'] as int? ?? 15,
-        durationMinutes: json['durationMinutes'] as int? ?? 20,
-        minutesAfter: json['minutesAfter'] as int? ?? 5,
-        enabled: json['enabled'] as bool? ?? true,
-      );
+  /// Deserialize. If iqamahOffsetMinutes is missing (pre-migration data),
+  /// the caller should provide the prayer name for correct defaults.
+  factory PrayerTimingConfig.fromJson(Map<String, dynamic> json, [PrayerName? prayer]) {
+    // If iqamahOffsetMinutes is absent in stored data, use prayer-specific default
+    final hasIqamah = json.containsKey('iqamahOffsetMinutes');
+    final defaultIqamah = prayer != null
+        ? PrayerTimingConfig.defaultFor(prayer).iqamahOffsetMinutes
+        : 15;
+
+    return PrayerTimingConfig(
+      minutesBefore: json['minutesBefore'] as int? ?? 5,
+      iqamahOffsetMinutes: hasIqamah
+          ? json['iqamahOffsetMinutes'] as int
+          : defaultIqamah,
+      durationMinutes: json['durationMinutes'] as int? ?? 20,
+      minutesAfter: json['minutesAfter'] as int? ?? 5,
+      enabled: json['enabled'] as bool? ?? true,
+    );
+  }
 
   /// Sensible defaults per prayer.
   /// iqamahOffset varies: Maghrib is short (5 min), Jumu'ah is long (30 min for khutbah).
@@ -129,7 +140,7 @@ class TimingPreferences {
       final data = json[prayer.name];
       if (data != null) {
         configs[prayer] =
-            PrayerTimingConfig.fromJson(data as Map<String, dynamic>);
+            PrayerTimingConfig.fromJson(data as Map<String, dynamic>, prayer);
       } else {
         configs[prayer] = PrayerTimingConfig.defaultFor(prayer);
       }
