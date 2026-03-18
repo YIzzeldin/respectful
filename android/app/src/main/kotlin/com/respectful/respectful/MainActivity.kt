@@ -115,8 +115,21 @@ class MainActivity : FlutterActivity() {
                     )
                 }
                 "removeAllGeofences" -> {
-                    GeofenceManager.removeAllGeofences(this)
-                    result.success(true)
+                    GeofenceManager.removeAllGeofences(this,
+                        onComplete = {
+                            // Also clear geo state from SharedPreferences
+                            val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                            prefs.edit()
+                                .putBoolean("geo_silenced", false)
+                                .remove("active_masjid_geofences")
+                                .remove("geo_saved_ringer_mode")
+                                .remove("geo_saved_interruption_filter")
+                                .remove("geo_saved_ring_volume")
+                                .remove("geo_saved_notification_volume")
+                                .commit()
+                            result.success(true)
+                        }
+                    )
                 }
                 "hasBackgroundLocationPermission" -> {
                     val granted = androidx.core.content.ContextCompat.checkSelfPermission(

@@ -91,14 +91,16 @@ object GeofenceManager {
     /**
      * Remove all registered geofences.
      */
-    fun removeAllGeofences(context: Context) {
+    fun removeAllGeofences(context: Context, onComplete: (() -> Unit)? = null) {
         val geofencingClient = LocationServices.getGeofencingClient(context)
         geofencingClient.removeGeofences(getGeofencePendingIntent(context))
             .addOnSuccessListener {
                 Log.d(TAG, "All geofences removed")
+                onComplete?.invoke()
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Failed to remove geofences: ${e.message}")
+                onComplete?.invoke() // Still complete even on failure
             }
     }
 
