@@ -82,16 +82,24 @@ class SettingsScreen extends ConsumerWidget {
             }),
             const SizedBox(height: 16),
 
-            // Per-prayer timing — always show since each prayer has its own config
+            // Per-prayer timing — tappable to edit
             _SectionCard(
               title: 'Per-Prayer Timing',
-              children: PrayerName.values.map((prayer) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _PerPrayerTimingCard(
-                      prayer: prayer,
-                      config: settings.timingPreferences.configFor(prayer),
-                    ),
-                  )).toList(),
+              children: [
+                const Text(
+                  'Tap a prayer to customize its timing',
+                  style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                ),
+                const SizedBox(height: 8),
+                ...PrayerName.values.map((prayer) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _PerPrayerTimingCard(
+                        prayer: prayer,
+                        config: settings.timingPreferences.configFor(prayer),
+                        onTap: () => _showTimingEditor(context, ref, prayer, settings),
+                      ),
+                    )),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -320,35 +328,302 @@ class _TimingRow extends StatelessWidget {
 class _PerPrayerTimingCard extends StatelessWidget {
   final PrayerName prayer;
   final PrayerTimingConfig config;
+  final VoidCallback? onTap;
 
-  const _PerPrayerTimingCard({required this.prayer, required this.config});
+  const _PerPrayerTimingCard({
+    required this.prayer,
+    required this.config,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
+    return Material(
+      color: AppColors.surfaceVariant,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
         borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      prayer.displayName,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${config.minutesBefore}m before · ${config.iqamahOffsetMinutes}m iqamah · '
+                      '${config.durationMinutes}m prayer · ${config.minutesAfter}m after',
+                      style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${config.totalMinutes}m',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right, size: 18, color: AppColors.textTertiary),
+            ],
+          ),
+        ),
       ),
-      child: Row(
+    );
+  }
+}
+
+void _showTimingEditor(
+  BuildContext context,
+  WidgetRef ref,
+  PrayerName prayer,
+  AppSettings settings,
+) {
+  final config = settings.timingPreferences.configFor(prayer);
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (context) => _TimingEditorSheet(
+      prayer: prayer,
+      initialConfig: config,
+      onSave: (newConfig) {
+        final newPrefs = settings.timingPreferences.withConfig(prayer, newConfig);
+        ref.read(settingsProvider.notifier).updateSettings(
+              settings.copyWith(timingPreferences: newPrefs),
+            );
+      },
+    ),
+  );
+}
+
+class _TimingEditorSheet extends StatefulWidget {
+  final PrayerName prayer;
+  final PrayerTimingConfig initialConfig;
+  final ValueChanged<PrayerTimingConfig> onSave;
+
+  const _TimingEditorSheet({
+    required this.prayer,
+    required this.initialConfig,
+    required this.onSave,
+  });
+
+  @override
+  State<_TimingEditorSheet> createState() => _TimingEditorSheetState();
+}
+
+class _TimingEditorSheetState extends State<_TimingEditorSheet> {
+  late int _minutesBefore;
+  late int _iqamahOffset;
+  late int _duration;
+  late int _minutesAfter;
+  late bool _enabled;
+
+  @override
+  void initState() {
+    super.initState();
+    _minutesBefore = widget.initialConfig.minutesBefore;
+    _iqamahOffset = widget.initialConfig.iqamahOffsetMinutes;
+    _duration = widget.initialConfig.durationMinutes;
+    _minutesAfter = widget.initialConfig.minutesAfter;
+    _enabled = widget.initialConfig.enabled;
+  }
+
+  int get _total => _minutesBefore + _iqamahOffset + _duration + _minutesAfter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              prayer.displayName,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                widget.prayer.displayName,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+              ),
+              Text(
+                'Total: ${_total}m',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Timeline: Before Azan → Azan → Iqamah → Prayer → After',
+            style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+          ),
+          const SizedBox(height: 24),
+
+          // Enabled toggle
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Auto-silence for this prayer', style: TextStyle(fontSize: 15)),
+              Switch(
+                value: _enabled,
+                activeTrackColor: AppColors.primary,
+                onChanged: (v) => setState(() => _enabled = v),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Sliders
+          _SliderRow(
+            label: 'Before azan',
+            value: _minutesBefore,
+            min: 0,
+            max: 30,
+            onChanged: (v) => setState(() => _minutesBefore = v),
+          ),
+          _SliderRow(
+            label: 'Azan to iqamah',
+            value: _iqamahOffset,
+            min: 0,
+            max: 45,
+            onChanged: (v) => setState(() => _iqamahOffset = v),
+          ),
+          _SliderRow(
+            label: 'Prayer duration',
+            value: _duration,
+            min: 5,
+            max: 60,
+            onChanged: (v) => setState(() => _duration = v),
+          ),
+          _SliderRow(
+            label: 'After prayer',
+            value: _minutesAfter,
+            min: 0,
+            max: 30,
+            onChanged: (v) => setState(() => _minutesAfter = v),
+          ),
+          const SizedBox(height: 16),
+
+          // Save button
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: () {
+                widget.onSave(PrayerTimingConfig(
+                  minutesBefore: _minutesBefore,
+                  iqamahOffsetMinutes: _iqamahOffset,
+                  durationMinutes: _duration,
+                  minutesAfter: _minutesAfter,
+                  enabled: _enabled,
+                ));
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
             ),
           ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              '${config.minutesBefore} | ${config.durationMinutes} | ${config.minutesAfter}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton(
+              onPressed: () {
+                final defaultConfig = PrayerTimingConfig.defaultFor(widget.prayer);
+                setState(() {
+                  _minutesBefore = defaultConfig.minutesBefore;
+                  _iqamahOffset = defaultConfig.iqamahOffsetMinutes;
+                  _duration = defaultConfig.durationMinutes;
+                  _minutesAfter = defaultConfig.minutesAfter;
+                  _enabled = defaultConfig.enabled;
+                });
+              },
+              child: const Text(
+                'Reset to defaults',
+                style: TextStyle(fontSize: 13, color: AppColors.textTertiary),
+              ),
             ),
           ),
-          const Icon(Icons.chevron_right, size: 18, color: AppColors.textTertiary),
+        ],
+      ),
+    );
+  }
+}
+
+class _SliderRow extends StatelessWidget {
+  final String label;
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+
+  const _SliderRow({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 14)),
+              Text(
+                '$value min',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: AppColors.primary,
+              inactiveTrackColor: AppColors.surfaceVariant,
+              thumbColor: AppColors.primary,
+              overlayColor: AppColors.primary.withValues(alpha: 0.1),
+              trackHeight: 4,
+            ),
+            child: Slider(
+              value: value.toDouble(),
+              min: min.toDouble(),
+              max: max.toDouble(),
+              divisions: max - min,
+              onChanged: (v) => onChanged(v.round()),
+            ),
+          ),
         ],
       ),
     );

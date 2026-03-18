@@ -34,10 +34,14 @@ class SilenceWindowCalculator {
               ? PrayerName.jumuah
               : prayer;
 
+      // Timeline: [minutesBefore] → AZAN → [iqamahOffset] → PRAYER → [duration] → [minutesAfter]
+      // prayerTime from adhan = azan time
       final start =
           prayerTime.subtract(Duration(minutes: config.minutesBefore));
-      final end = prayerTime
-          .add(Duration(minutes: config.durationMinutes + config.minutesAfter));
+      final end = prayerTime.add(Duration(
+          minutes: config.iqamahOffsetMinutes +
+              config.durationMinutes +
+              config.minutesAfter));
 
       windows.add(SilenceWindow(
         prayer: displayPrayer,
@@ -67,7 +71,9 @@ class SilenceWindowCalculator {
           prayer: PrayerName.fajr,
           start: fajrTime.subtract(Duration(minutes: fajrConfig.minutesBefore)),
           end: fajrTime.add(Duration(
-              minutes: fajrConfig.durationMinutes + fajrConfig.minutesAfter)),
+              minutes: fajrConfig.iqamahOffsetMinutes +
+                  fajrConfig.durationMinutes +
+                  fajrConfig.minutesAfter)),
         );
         // Only add if it doesn't overlap with today's windows
         // (edge case: Isha extends past midnight into Fajr territory)
