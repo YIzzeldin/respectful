@@ -7,6 +7,7 @@ import '../services/prayer_calculator.dart';
 import '../services/silence_scheduler.dart';
 import '../services/silence_window_calculator.dart';
 import '../services/storage_service.dart';
+import '../services/location_service.dart';
 import '../services/volume_controller.dart';
 
 // --- Singleton services ---
@@ -34,6 +35,43 @@ final silenceWindowCalculatorProvider =
 
 final silenceSchedulerProvider = Provider<SilenceScheduler>((ref) {
   return SilenceScheduler(ref.watch(volumeControllerProvider));
+});
+
+final locationServiceProvider = Provider<LocationService>((ref) {
+  return LocationService();
+});
+
+/// Refreshes location on app resume. If user has traveled >10km,
+/// updates stored coordinates so prayer times recalculate automatically.
+final locationRefreshProvider = FutureProvider<void>((ref) async {
+  final settings = ref.read(settingsProvider);
+  if (!settings.hasLocation || !settings.onboardingComplete) return;
+
+  final locationService = ref.read(locationServiceProvider);
+  final eventLog = ref.read(eventLogServiceProvider);
+
+  final position = await locationService.getCurrentPosition();
+  if (position == null) return;
+
+  final moved = locationService.hasMovedSignificantly(
+    storedLat: settings.latitude!,
+    storedLng: settings.longitude!,
+    currentLat: position.latitude,
+    currentLng: position.longitude,
+  );
+
+  if (moved) {
+    await ref.read(settingsProvider.notifier).setLocation(
+          position.latitude,
+          position.longitude,
+        );
+    await eventLog.log(
+      EventType.info,
+      'Location updated — travel detected '
+      '(${position.latitude.toStringAsFixed(2)}, '
+      '${position.longitude.toStringAsFixed(2)})',
+    );
+  }
 });
 
 // --- App Settings ---
