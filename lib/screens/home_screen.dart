@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../models/app_settings.dart';
@@ -124,6 +125,8 @@ class HomeScreen extends ConsumerWidget {
                     if (allDisabled) {
                       // Turn on geofence (primary) when enabling
                       ref.read(settingsProvider.notifier).setGeofenceSilenceEnabled(true);
+                      // Re-register geofences and check if already at a masjid
+                      _enableAndCheckLocation(ref);
                     } else {
                       // Turn off both when disabling
                       ref.read(settingsProvider.notifier).setGeofenceSilenceEnabled(false);
@@ -324,6 +327,45 @@ class HomeScreen extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Divider(height: 1, color: AppColors.surfaceVariant),
     );
+  }
+
+  /// When turning ON, re-register geofences and check if already at a masjid.
+  Future<void> _enableAndCheckLocation(WidgetRef ref) async {
+    final controller = ref.read(volumeControllerProvider);
+    final masjids = ref.read(savedMasjidsProvider);
+
+    if (masjids.isEmpty) return;
+
+    // Force re-register geofences
+    ref.invalidate(autoGeofenceProvider);
+
+    // Check current location against saved masjids
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+
+      final locationService = ref.read(locationServiceProvider);
+
+      for (final masjid in masjids) {
+        final distance = locationService.hasMovedSignificantly(
+          storedLat: masjid.latitude,
+          storedLng: masjid.longitude,
+          currentLat: position.latitude,
+          currentLng: position.longitude,
+          thresholdKm: 0.2, // 200m — geofence radius
+        );
+
+        if (!distance) {
+          // Within 200m of a saved masjid — silence immediately
+          await controller.applySilence();
+          ref.invalidate(geoSilencedProvider);
+          break;
+        }
+      }
+    } catch (_) {
+      // GPS failed — geofences will handle it when they register
+    }
   }
 
   /// Force-restore phone to normal when master toggle is turned OFF.
