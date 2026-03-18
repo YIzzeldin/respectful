@@ -5,6 +5,7 @@ import 'providers/app_providers.dart';
 import 'screens/app_shell.dart';
 import 'screens/onboarding_screen.dart';
 import 'widgets/location_refresh_listener.dart';
+import 'widgets/silence_engine_watcher.dart';
 import 'services/event_log_service.dart';
 import 'services/storage_service.dart';
 
@@ -41,7 +42,9 @@ class RespectfulApp extends ConsumerWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       home: settings.onboardingComplete
-          ? const LocationRefreshListener(child: AppShell())
+          ? const SilenceEngineWatcher(
+              child: LocationRefreshListener(child: AppShell()),
+            )
           : OnboardingScreen(
               onComplete: () {
                 ref.read(settingsProvider.notifier).completeOnboarding();

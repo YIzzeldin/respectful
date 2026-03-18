@@ -142,65 +142,7 @@ class HomeScreen extends ConsumerWidget {
         const SizedBox(height: 20),
 
         // Masjid mode button
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () {
-                // TODO: activate masjid mode
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.mosque_rounded,
-                        color: AppColors.primary,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "I'm at a Masjid",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const Text(
-                            'Tap to activate masjid mode',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textTertiary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right, color: AppColors.textTertiary),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+        _MasjidModeCard(ref: ref),
         const SizedBox(height: 24),
       ],
     );
@@ -236,5 +178,93 @@ class HomeScreen extends ConsumerWidget {
     if (now.hour < 12) return 'Assalamu Alaikum';
     if (now.hour < 17) return 'Assalamu Alaikum';
     return 'Assalamu Alaikum';
+  }
+}
+
+class _MasjidModeCard extends ConsumerWidget {
+  final WidgetRef ref;
+
+  const _MasjidModeCard({required this.ref});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final masjidMode = ref.watch(masjidModeProvider);
+    final isActive = masjidMode.isActive;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isActive ? AppColors.primary : AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            if (isActive) {
+              ref.read(masjidModeProvider.notifier).deactivate();
+            } else {
+              ref.read(masjidModeProvider.notifier).activate();
+            }
+          },
+          onLongPress: isActive
+              ? () => ref.read(masjidModeProvider.notifier).extend()
+              : null,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.mosque_rounded,
+                    color: isActive ? Colors.white : AppColors.primary,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isActive ? 'Masjid Mode Active' : "I'm at a Masjid",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isActive ? Colors.white : AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        isActive
+                            ? 'Tap to deactivate • Long press to extend'
+                            : 'Tap to activate masjid mode',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isActive
+                              ? Colors.white70
+                              : AppColors.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  isActive ? Icons.close : Icons.chevron_right,
+                  color: isActive ? Colors.white70 : AppColors.textTertiary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
