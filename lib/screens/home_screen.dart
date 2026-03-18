@@ -332,26 +332,14 @@ class HomeScreen extends ConsumerWidget {
     final controller = ref.read(volumeControllerProvider);
     final eventLog = ref.read(eventLogServiceProvider);
 
-    // Deactivate manual masjid mode if active
-    final masjidMode = ref.read(masjidModeProvider);
-    if (masjidMode.isActive) {
-      await ref.read(masjidModeProvider.notifier).deactivate();
-    }
-
-    // Cancel all alarms (prayer + masjid)
+    // Cancel all alarms
     await controller.cancelAllAlarms();
 
-    // Remove all geofences
+    // Remove all geofences and clear geo state
     await controller.removeAllGeofences();
 
-    // Force DND back to normal (INTERRUPTION_FILTER_ALL + RINGER_MODE_NORMAL)
-    final normalState = {
-      'ringerMode': 2, // RINGER_MODE_NORMAL
-      'interruptionFilter': 4, // INTERRUPTION_FILTER_ALL
-      'ringVolume': 5,
-      'notificationVolume': 5,
-    };
-    await controller.restoreState(normalState);
+    // Force phone back to normal — ringer + DND + clear ALL silence state
+    await controller.forceRestoreNormal();
 
     await eventLog.log(
       EventType.restored,

@@ -138,6 +138,38 @@ class MainActivity : FlutterActivity() {
                     ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                     result.success(granted)
                 }
+                "forceRestoreNormal" -> {
+                    val nm = getSystemService(android.app.NotificationManager::class.java)
+                    val am = getSystemService(android.media.AudioManager::class.java) as android.media.AudioManager
+                    try {
+                        // Set DND to ALL (normal — allow everything)
+                        nm.setInterruptionFilter(android.app.NotificationManager.INTERRUPTION_FILTER_ALL)
+                        // Set ringer to NORMAL
+                        am.ringerMode = android.media.AudioManager.RINGER_MODE_NORMAL
+                        // Clear all silence state
+                        val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                        prefs.edit()
+                            .putBoolean("is_silenced", false)
+                            .putBoolean("geo_silenced", false)
+                            .putBoolean("user_overridden", false)
+                            .remove("active_masjid_geofences")
+                            .remove("current_prayer")
+                            .remove("silenced_at")
+                            .remove("window_end_ms")
+                            .remove("saved_ringer_mode")
+                            .remove("saved_interruption_filter")
+                            .remove("saved_ring_volume")
+                            .remove("saved_notification_volume")
+                            .remove("geo_saved_ringer_mode")
+                            .remove("geo_saved_interruption_filter")
+                            .remove("geo_saved_ring_volume")
+                            .remove("geo_saved_notification_volume")
+                            .commit()
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
                 "isGeoSilenced" -> {
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
                     result.success(prefs.getBoolean("geo_silenced", false))

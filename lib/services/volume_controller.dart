@@ -108,6 +108,11 @@ class VolumeController {
     return await _channel.invokeMethod<bool>('hasBackgroundLocationPermission') ?? false;
   }
 
+  /// Force phone back to normal — ringer normal + DND all + clear all silence state.
+  Future<bool> forceRestoreNormal() async {
+    return await _channel.invokeMethod<bool>('forceRestoreNormal') ?? false;
+  }
+
   /// Check if phone is currently silenced by a geofence (native side).
   Future<bool> isGeoSilenced() async {
     return await _channel.invokeMethod<bool>('isGeoSilenced') ?? false;
