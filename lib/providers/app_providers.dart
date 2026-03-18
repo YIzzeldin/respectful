@@ -346,6 +346,9 @@ class MasjidModeNotifier extends StateNotifier<MasjidModeState> {
 
   /// Activate masjid mode — capture state, silence phone, schedule auto-expire.
   Future<void> activate({int durationMinutes = 120}) async {
+    // Guard against reentrant calls — don't overwrite snapshot if already active
+    if (state.isActive) return;
+
     final now = DateTime.now();
 
     // Capture phone state BEFORE silencing so we can restore later

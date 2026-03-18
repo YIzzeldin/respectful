@@ -21,9 +21,15 @@ class MasjidStorageService {
           .map((e) => SavedMasjid.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (_) {
+      // Don't return empty — preserve the raw data under a backup key
+      // so it's not overwritten by the next add/remove call.
+      _prefs.setString('${_key}_corrupt_backup', json);
       return [];
     }
   }
+
+  /// Returns true if there's a corrupt backup that could be investigated.
+  bool hasCorruptBackup() => _prefs.containsKey('${_key}_corrupt_backup');
 
   Future<void> saveAll(List<SavedMasjid> masjids) async {
     await _prefs.setString(
