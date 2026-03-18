@@ -199,6 +199,187 @@ final nextPrayerProvider = Provider<(PrayerName, DateTime)?>((ref) {
   return today.nextPrayer(now);
 });
 
+// --- Auto-Schedule Alarms ---
+// Watches silence windows and auto-schedules alarms whenever they change.
+// This is the critical wiring that makes the engine actually work.
+
+/// Tracks the last scheduled window set to avoid redundant rescheduling.
+int _lastScheduledHash = 0;
+
+final autoScheduleProvider = FutureProvider<void>((ref) async {
+  final windows = ref.watch(silenceWindowsProvider);
+  final settings = ref.watch(settingsProvider);
+
+  if (!settings.autoSilentEnabled || windows.isEmpty) return;
+
+  // Compute a hash of the current windows to detect actual changes.
+  // Avoids rescheduling + logging on every ticker invalidation.
+  final windowsHash = Object.hashAll(
+    windows.map((w) => Object.hash(w.start.millisecondsSinceEpoch, w.end.millisecondsSinceEpoch)),
+  );
+  if (windowsHash == _lastScheduledHash) return;
+  _lastScheduledHash = windowsHash;
+
+  final scheduler = ref.read(silenceSchedulerProvider);
+  final eventLog = ref.read(eventLogServiceProvider);
+
+  await scheduler.scheduleAll(windows);
+
+  final now = DateTime.now();
+  final upcoming = windows.where((w) => w.end.isAfter(now)).length;
+  await eventLog.log(
+    EventType.alarmScheduled,
+    'Scheduled $upcoming silence windows',
+  );
+});
+
+// --- Masjid Mode ---
+
+final masjidModeProvider =
+    StateNotifierProvider<MasjidModeNotifier, MasjidModeState>((ref) {
+  return MasjidModeNotifier(
+    ref.watch(volumeControllerProvider),
+    ref.watch(eventLogServiceProvider),
+    ref.watch(silenceSchedulerProvider),
+    () => ref.read(silenceWindowsProvider), // lazy read to avoid circular dep
+    () => ref.read(settingsProvider),
+  );
+});
+
+class MasjidModeState {
+  final bool isActive;
+  final DateTime? activatedAt;
+  final DateTime? expiresAt;
+  final bool isOverridden;
+  final DateTime? overrideExpiresAt;
+
+  const MasjidModeState({
+    this.isActive = false,
+    this.activatedAt,
+    this.expiresAt,
+    this.isOverridden = false,
+    this.overrideExpiresAt,
+  });
+
+  Duration? get remainingTime {
+    if (!isActive || expiresAt == null) return null;
+    final remaining = expiresAt!.difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
+  MasjidModeState copyWith({
+    bool? isActive,
+    DateTime? activatedAt,
+    DateTime? expiresAt,
+    bool? isOverridden,
+    DateTime? overrideExpiresAt,
+  }) =>
+      MasjidModeState(
+        isActive: isActive ?? this.isActive,
+        activatedAt: activatedAt ?? this.activatedAt,
+        expiresAt: expiresAt ?? this.expiresAt,
+        isOverridden: isOverridden ?? this.isOverridden,
+        overrideExpiresAt: overrideExpiresAt ?? this.overrideExpiresAt,
+      );
+}
+
+class MasjidModeNotifier extends StateNotifier<MasjidModeState> {
+  final VolumeController _volumeController;
+  final EventLogService _eventLog;
+  final SilenceScheduler _scheduler;
+  final List<SilenceWindow> Function() _getWindows;
+  final AppSettings Function() _getSettings;
+
+  /// Captured phone state before masjid mode silenced — used to restore.
+  Map<String, dynamic>? _savedPhoneState;
+
+  MasjidModeNotifier(
+    this._volumeController,
+    this._eventLog,
+    this._scheduler,
+    this._getWindows,
+    this._getSettings,
+  ) : super(const MasjidModeState());
+
+  /// Activate masjid mode — capture state, silence phone, schedule auto-expire.
+  Future<void> activate({int durationMinutes = 120}) async {
+    final now = DateTime.now();
+
+    // Capture phone state BEFORE silencing so we can restore later
+    _savedPhoneState = await _volumeController.captureCurrentState();
+
+    // Silence the phone
+    final success = await _volumeController.applySilence();
+    if (!success) {
+      _savedPhoneState = null;
+      await _eventLog.log(EventType.error, 'Masjid mode failed — DND permission missing');
+      return;
+    }
+
+    state = MasjidModeState(
+      isActive: true,
+      activatedAt: now,
+      expiresAt: now.add(Duration(minutes: durationMinutes)),
+    );
+
+    // Schedule masjid-specific restore alarm (requestCode 3000 — won't collide with prayer alarms)
+    await _volumeController.scheduleRestoreAlarm(
+      triggerAtMs: state.expiresAt!.millisecondsSinceEpoch,
+      requestCode: 3000,
+    );
+
+    await _eventLog.log(
+      EventType.masjidModeOn,
+      'Masjid mode activated (${durationMinutes}m)',
+    );
+  }
+
+  /// Deactivate masjid mode — restore phone state, then reschedule prayer alarms.
+  Future<void> deactivate() async {
+    if (!state.isActive) return;
+
+    // Restore phone to pre-masjid state
+    if (_savedPhoneState != null) {
+      await _volumeController.restoreState(_savedPhoneState!);
+      _savedPhoneState = null;
+    }
+
+    state = const MasjidModeState();
+
+    // Reschedule prayer alarms (masjid deactivation doesn't change silence windows,
+    // so autoScheduleProvider won't re-run. We must manually reschedule.)
+    final settings = _getSettings();
+    if (settings.autoSilentEnabled) {
+      final windows = _getWindows();
+      if (windows.isNotEmpty) {
+        await _scheduler.scheduleAll(windows);
+      }
+    }
+
+    await _eventLog.log(EventType.masjidModeOff, 'Masjid mode deactivated');
+  }
+
+  /// Extend masjid mode by [additionalMinutes].
+  Future<void> extend({int additionalMinutes = 60}) async {
+    if (!state.isActive) return;
+
+    final newExpiry = (state.expiresAt ?? DateTime.now())
+        .add(Duration(minutes: additionalMinutes));
+
+    state = state.copyWith(expiresAt: newExpiry);
+
+    await _volumeController.scheduleRestoreAlarm(
+      triggerAtMs: newExpiry.millisecondsSinceEpoch,
+      requestCode: 3000,
+    );
+
+    await _eventLog.log(
+      EventType.masjidModeOn,
+      'Masjid mode extended by ${additionalMinutes}m',
+    );
+  }
+}
+
 // --- Permission Status ---
 
 final dndPermissionProvider = FutureProvider<bool>((ref) async {
