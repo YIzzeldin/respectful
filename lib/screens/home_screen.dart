@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
+import '../models/app_settings.dart';
 import '../models/prayer_day.dart';
 import 'masjid_screen.dart';
 import '../providers/app_providers.dart';
@@ -23,7 +24,7 @@ class HomeScreen extends ConsumerWidget {
       body: SafeArea(
         child: prayerDay == null
             ? _buildNoLocation(context)
-            : _buildContent(context, ref, prayerDay, nextPrayer, activeWindow != null, settings.timeBasedSilenceEnabled),
+            : _buildContent(context, ref, prayerDay, nextPrayer, activeWindow != null, settings),
       ),
     );
   }
@@ -59,8 +60,11 @@ class HomeScreen extends ConsumerWidget {
     PrayerDay day,
     (PrayerName, DateTime)? nextPrayer,
     bool isSilenced,
-    bool timeBasedSilenceEnabled,
+    AppSettings settings,
   ) {
+    final timeBasedSilenceEnabled = settings.timeBasedSilenceEnabled;
+    final geofenceEnabled = settings.geofenceSilenceEnabled;
+    final allDisabled = !timeBasedSilenceEnabled && !geofenceEnabled;
     final now = DateTime.now();
     final greeting = _getGreeting(now);
 
@@ -92,38 +96,70 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            GestureDetector(
-              onTap: () {
-                ref.read(settingsProvider.notifier).setTimeBasedSilenceEnabled(!timeBasedSilenceEnabled);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: timeBasedSilenceEnabled
-                      ? AppColors.primary.withValues(alpha: 0.1)
-                      : AppColors.error.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
+            // Status indicators + master toggle
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Master ON/OFF toggle — disables/enables both
+                GestureDetector(
+                  onTap: () {
+                    if (allDisabled) {
+                      // Turn on geofence (primary) when enabling
+                      ref.read(settingsProvider.notifier).setGeofenceSilenceEnabled(true);
+                    } else {
+                      // Turn off both when disabling
+                      ref.read(settingsProvider.notifier).setGeofenceSilenceEnabled(false);
+                      ref.read(settingsProvider.notifier).setTimeBasedSilenceEnabled(false);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: allDisabled
+                          ? AppColors.error.withValues(alpha: 0.1)
+                          : AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          allDisabled ? Icons.volume_up : Icons.volume_off,
+                          size: 12,
+                          color: allDisabled ? AppColors.error : AppColors.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          allDisabled ? 'OFF' : 'ON',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: allDisabled ? AppColors.error : AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                child: Row(
+                const SizedBox(height: 4),
+                // Mode indicators
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      timeBasedSilenceEnabled ? Icons.volume_off : Icons.volume_up,
-                      size: 14,
-                      color: timeBasedSilenceEnabled ? AppColors.primary : AppColors.error,
+                    _ModeChip(
+                      icon: Icons.mosque_rounded,
+                      label: 'Masjid',
+                      enabled: geofenceEnabled,
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      timeBasedSilenceEnabled ? 'ON' : 'OFF',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: timeBasedSilenceEnabled ? AppColors.primary : AppColors.error,
-                      ),
+                    _ModeChip(
+                      icon: Icons.schedule_rounded,
+                      label: 'Time',
+                      enabled: timeBasedSilenceEnabled,
                     ),
                   ],
                 ),
-              ),
+              ],
             ),
           ],
         ),
@@ -377,6 +413,50 @@ class _MasjidModeCard extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ModeChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool enabled;
+
+  const _ModeChip({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: enabled
+            ? AppColors.primary.withValues(alpha: 0.08)
+            : AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 10,
+            color: enabled ? AppColors.primary : AppColors.textTertiary,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: enabled ? AppColors.primary : AppColors.textTertiary,
+            ),
+          ),
+        ],
       ),
     );
   }
