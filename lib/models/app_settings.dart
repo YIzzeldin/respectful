@@ -80,7 +80,12 @@ extension SilenceLevelDisplay on SilenceLevel {
 class AppSettings {
   final CalculationMethodType calculationMethod;
   final TimingPreferences timingPreferences;
-  final bool autoSilentEnabled;
+  /// Time-based auto-silence (silence at prayer times). OFF by default.
+  final bool timeBasedSilenceEnabled;
+
+  /// Geofence-based auto-silence (silence at saved masjids). ON by default — main use case.
+  final bool geofenceSilenceEnabled;
+
   final SilenceLevel silenceLevel;
   final bool usePerPrayerConfig;
   final bool onboardingComplete;
@@ -90,7 +95,8 @@ class AppSettings {
   const AppSettings({
     this.calculationMethod = CalculationMethodType.muslimWorldLeague,
     required this.timingPreferences,
-    this.autoSilentEnabled = true,
+    this.timeBasedSilenceEnabled = false,
+    this.geofenceSilenceEnabled = true,
     this.silenceLevel = SilenceLevel.totalSilence,
     this.usePerPrayerConfig = false,
     this.onboardingComplete = false,
@@ -107,7 +113,8 @@ class AppSettings {
   AppSettings copyWith({
     CalculationMethodType? calculationMethod,
     TimingPreferences? timingPreferences,
-    bool? autoSilentEnabled,
+    bool? timeBasedSilenceEnabled,
+    bool? geofenceSilenceEnabled,
     SilenceLevel? silenceLevel,
     bool? usePerPrayerConfig,
     bool? onboardingComplete,
@@ -117,7 +124,8 @@ class AppSettings {
       AppSettings(
         calculationMethod: calculationMethod ?? this.calculationMethod,
         timingPreferences: timingPreferences ?? this.timingPreferences,
-        autoSilentEnabled: autoSilentEnabled ?? this.autoSilentEnabled,
+        timeBasedSilenceEnabled: timeBasedSilenceEnabled ?? this.timeBasedSilenceEnabled,
+        geofenceSilenceEnabled: geofenceSilenceEnabled ?? this.geofenceSilenceEnabled,
         silenceLevel: silenceLevel ?? this.silenceLevel,
         usePerPrayerConfig: usePerPrayerConfig ?? this.usePerPrayerConfig,
         onboardingComplete: onboardingComplete ?? this.onboardingComplete,
