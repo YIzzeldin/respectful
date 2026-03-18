@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 import '../core/theme.dart';
@@ -249,8 +250,33 @@ class MasjidScreen extends ConsumerWidget {
 
       if (!context.mounted) return;
 
-      // Ask for name
-      final name = await _askMasjidName(context);
+      // Auto-detect address for pre-filling the name
+      String suggestedName = 'Masjid ${ref.read(savedMasjidsProvider).length + 1}';
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          // Build a readable name from the address components
+          final parts = <String>[
+            if (p.name != null && p.name!.isNotEmpty) p.name!,
+            if (p.street != null && p.street!.isNotEmpty && p.street != p.name) p.street!,
+            if (p.subLocality != null && p.subLocality!.isNotEmpty) p.subLocality!,
+          ];
+          if (parts.isNotEmpty) {
+            suggestedName = parts.take(2).join(', ');
+          }
+        }
+      } catch (_) {
+        // Geocoding failed — use default name
+      }
+
+      if (!context.mounted) return;
+
+      // Ask for name — pre-filled with auto-detected address
+      final name = await _askMasjidName(context, suggestedName);
       if (name == null || name.isEmpty) return;
 
       final masjid = SavedMasjid(
@@ -284,8 +310,11 @@ class MasjidScreen extends ConsumerWidget {
     }
   }
 
-  Future<String?> _askMasjidName(BuildContext context) async {
-    final controller = TextEditingController();
+  Future<String?> _askMasjidName(BuildContext context, [String? defaultName]) async {
+    final controller = TextEditingController(text: defaultName);
+    if (defaultName != null) {
+      controller.selection = TextSelection(baseOffset: 0, extentOffset: defaultName.length);
+    }
     return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -293,9 +322,10 @@ class MasjidScreen extends ConsumerWidget {
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'e.g. Masjid Al-Noor',
-            border: OutlineInputBorder(),
+            border: const OutlineInputBorder(),
+            helperText: defaultName != null ? 'Auto-detected from location' : null,
           ),
           textCapitalization: TextCapitalization.words,
           onSubmitted: (value) => Navigator.pop(context, value),
