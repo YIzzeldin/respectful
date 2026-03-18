@@ -115,7 +115,9 @@ class _SpikeScreenState extends State<SpikeScreen> with WidgetsBindingObserver {
       triggerAtMs: restoreAt.millisecondsSinceEpoch,
     );
 
-    _addLog('Restore alarm scheduled for ${TimeOfDay.fromDateTime(restoreAt).format(context)}');
+    if (mounted) {
+      _addLog('Restore alarm scheduled for ${TimeOfDay.fromDateTime(restoreAt).format(context)}');
+    }
   }
 
   Future<void> _scheduleSilenceIn1Min() async {
