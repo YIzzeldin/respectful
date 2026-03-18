@@ -9,10 +9,11 @@ class SilenceScheduler {
   SilenceScheduler(this._volumeController);
 
   /// Schedule all alarms for the given silence windows.
-  /// Cancels any existing alarms first, then schedules new ones.
+  ///
+  /// Uses an atomic approach: schedules all new alarms FIRST, then
+  /// old alarms with the same request codes are automatically replaced
+  /// by FLAG_UPDATE_CURRENT. No cancel-then-reschedule race condition.
   Future<void> scheduleAll(List<SilenceWindow> windows) async {
-    await _volumeController.cancelAllAlarms();
-
     final now = DateTime.now();
 
     for (final window in windows) {
@@ -20,7 +21,7 @@ class SilenceScheduler {
       if (window.end.isBefore(now)) continue;
 
       if (window.start.isAfter(now)) {
-        // Window hasn't started — schedule both silence and restore
+        // Window hasn't started — schedule silence alarm
         await _volumeController.scheduleSilenceAlarm(
           triggerAtMs: window.start.millisecondsSinceEpoch,
           prayerName: window.displayName,
@@ -28,7 +29,8 @@ class SilenceScheduler {
           requestCode: window.silenceAlarmId,
         );
       }
-      // Always schedule restore (even if window already started — we may be mid-window after restart)
+      // Always schedule restore (even if mid-window — covers restart case).
+      // scheduleRestoreAlarm also schedules the safety restore automatically.
       await _volumeController.scheduleRestoreAlarm(
         triggerAtMs: window.end.millisecondsSinceEpoch,
         requestCode: window.restoreAlarmId,

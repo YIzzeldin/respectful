@@ -75,11 +75,27 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   }
 }
 
+// --- Time Ticker ---
+// Emits a new DateTime every minute to invalidate time-dependent providers.
+// This ensures prayer times refresh after midnight, active window updates, etc.
+
+final currentDateProvider = StreamProvider<DateTime>((ref) {
+  return Stream.periodic(const Duration(minutes: 1), (_) => DateTime.now())
+      .map((t) => DateTime(t.year, t.month, t.day)); // date-only for prayer calc
+});
+
+final currentMinuteProvider = StreamProvider<DateTime>((ref) {
+  return Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now());
+});
+
 // --- Prayer Times ---
 
 final todayPrayerTimesProvider = Provider<PrayerDay?>((ref) {
   final settings = ref.watch(settingsProvider);
   if (!settings.hasLocation) return null;
+
+  // Re-evaluate when the date changes (after midnight)
+  ref.watch(currentDateProvider);
 
   final calculator = ref.watch(prayerCalculatorProvider);
   return calculator.today(
@@ -92,6 +108,8 @@ final todayPrayerTimesProvider = Provider<PrayerDay?>((ref) {
 final tomorrowPrayerTimesProvider = Provider<PrayerDay?>((ref) {
   final settings = ref.watch(settingsProvider);
   if (!settings.hasLocation) return null;
+
+  ref.watch(currentDateProvider);
 
   final calculator = ref.watch(prayerCalculatorProvider);
   return calculator.tomorrow(
@@ -119,24 +137,28 @@ final silenceWindowsProvider = Provider<List<SilenceWindow>>((ref) {
 });
 
 /// The currently active silence window (if any).
+/// Refreshes every 30 seconds via currentMinuteProvider.
 final activeSilenceWindowProvider = Provider<SilenceWindow?>((ref) {
   final windows = ref.watch(silenceWindowsProvider);
   final calculator = ref.watch(silenceWindowCalculatorProvider);
-  return calculator.activeWindow(windows, DateTime.now());
+  final now = ref.watch(currentMinuteProvider).valueOrNull ?? DateTime.now();
+  return calculator.activeWindow(windows, now);
 });
 
-/// The next upcoming silence window.
+/// The next upcoming silence window. Refreshes every 30 seconds.
 final nextSilenceWindowProvider = Provider<SilenceWindow?>((ref) {
+  final now = ref.watch(currentMinuteProvider).valueOrNull ?? DateTime.now();
   final windows = ref.watch(silenceWindowsProvider);
   final calculator = ref.watch(silenceWindowCalculatorProvider);
-  return calculator.nextWindow(windows, DateTime.now());
+  return calculator.nextWindow(windows, now);
 });
 
-/// Next prayer time info: (name, time).
+/// Next prayer time info: (name, time). Refreshes every 30 seconds.
 final nextPrayerProvider = Provider<(PrayerName, DateTime)?>((ref) {
   final today = ref.watch(todayPrayerTimesProvider);
   if (today == null) return null;
-  return today.nextPrayer(DateTime.now());
+  final now = ref.watch(currentMinuteProvider).valueOrNull ?? DateTime.now();
+  return today.nextPrayer(now);
 });
 
 // --- Permission Status ---
