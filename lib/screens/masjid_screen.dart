@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 import '../core/theme.dart';
 import '../models/saved_masjid.dart';
 import '../providers/app_providers.dart';
@@ -67,9 +68,50 @@ class MasjidScreen extends ConsumerWidget {
       List<SavedMasjid> masjids, MasjidModeState masjidMode) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      itemCount: masjids.length + 1, // +1 for the add button at bottom
+      itemCount: masjids.length + 2, // +1 for bg location banner, +1 for add button
       itemBuilder: (context, index) {
-        if (index == masjids.length) {
+        // Background location permission banner
+        if (index == 0) {
+          return FutureBuilder<bool>(
+            future: ref.read(volumeControllerProvider).hasBackgroundLocationPermission(),
+            builder: (context, snapshot) {
+              final granted = snapshot.data ?? false;
+              if (granted) return const SizedBox.shrink();
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on, color: AppColors.warning, size: 20),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Grant "Allow all the time" location for auto-detection when you enter a masjid.',
+                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await ph.Permission.locationAlways.request();
+                        // Trigger rebuild
+                        ref.invalidate(autoGeofenceProvider);
+                      },
+                      child: const Text('Grant', style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        }
+
+        final masjidIndex = index - 1; // Offset for banner
+        if (masjidIndex == masjids.length) {
           return Padding(
             padding: const EdgeInsets.only(top: 8),
             child: OutlinedButton.icon(
@@ -87,7 +129,7 @@ class MasjidScreen extends ConsumerWidget {
           );
         }
 
-        final masjid = masjids[index];
+        final masjid = masjids[masjidIndex];
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(

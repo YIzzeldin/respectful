@@ -276,6 +276,44 @@ final autoScheduleProvider = FutureProvider<void>((ref) async {
   );
 });
 
+// --- Geofence Auto-Registration ---
+// Watches saved masjids and auto-registers geofences when the list changes.
+
+final autoGeofenceProvider = FutureProvider<void>((ref) async {
+  final masjids = ref.watch(savedMasjidsProvider);
+  final controller = ref.read(volumeControllerProvider);
+
+  if (masjids.isEmpty) {
+    await controller.removeAllGeofences();
+    return;
+  }
+
+  final hasBgLocation = await controller.hasBackgroundLocationPermission();
+  if (!hasBgLocation) return; // Can't register without background location
+
+  // Always remove all first, then re-add. This ensures deleted masjids
+  // don't keep stale geofences active (addGeofences only replaces by ID,
+  // it doesn't remove IDs that are no longer in the list).
+  await controller.removeAllGeofences();
+
+  final masjidMaps = masjids
+      .map((m) => {
+            'id': m.id,
+            'name': m.name,
+            'latitude': m.latitude,
+            'longitude': m.longitude,
+          })
+      .toList();
+
+  await controller.registerGeofences(masjidMaps);
+
+  final eventLog = ref.read(eventLogServiceProvider);
+  await eventLog.log(
+    EventType.info,
+    'Registered ${masjids.length} masjid geofences',
+  );
+});
+
 // --- Masjid Mode ---
 
 final masjidModeProvider =
