@@ -203,11 +203,22 @@ final nextPrayerProvider = Provider<(PrayerName, DateTime)?>((ref) {
 // Watches silence windows and auto-schedules alarms whenever they change.
 // This is the critical wiring that makes the engine actually work.
 
+/// Tracks the last scheduled window set to avoid redundant rescheduling.
+int _lastScheduledHash = 0;
+
 final autoScheduleProvider = FutureProvider<void>((ref) async {
   final windows = ref.watch(silenceWindowsProvider);
   final settings = ref.watch(settingsProvider);
 
   if (!settings.autoSilentEnabled || windows.isEmpty) return;
+
+  // Compute a hash of the current windows to detect actual changes.
+  // Avoids rescheduling + logging on every ticker invalidation.
+  final windowsHash = Object.hashAll(
+    windows.map((w) => Object.hash(w.start.millisecondsSinceEpoch, w.end.millisecondsSinceEpoch)),
+  );
+  if (windowsHash == _lastScheduledHash) return;
+  _lastScheduledHash = windowsHash;
 
   final scheduler = ref.read(silenceSchedulerProvider);
   final eventLog = ref.read(eventLogServiceProvider);
@@ -229,6 +240,9 @@ final masjidModeProvider =
   return MasjidModeNotifier(
     ref.watch(volumeControllerProvider),
     ref.watch(eventLogServiceProvider),
+    ref.watch(silenceSchedulerProvider),
+    () => ref.read(silenceWindowsProvider), // lazy read to avoid circular dep
+    () => ref.read(settingsProvider),
   );
 });
 
@@ -272,17 +286,32 @@ class MasjidModeState {
 class MasjidModeNotifier extends StateNotifier<MasjidModeState> {
   final VolumeController _volumeController;
   final EventLogService _eventLog;
+  final SilenceScheduler _scheduler;
+  final List<SilenceWindow> Function() _getWindows;
+  final AppSettings Function() _getSettings;
 
-  MasjidModeNotifier(this._volumeController, this._eventLog)
-      : super(const MasjidModeState());
+  /// Captured phone state before masjid mode silenced — used to restore.
+  Map<String, dynamic>? _savedPhoneState;
 
-  /// Activate masjid mode — silence phone for [durationMinutes] (default 2 hours).
+  MasjidModeNotifier(
+    this._volumeController,
+    this._eventLog,
+    this._scheduler,
+    this._getWindows,
+    this._getSettings,
+  ) : super(const MasjidModeState());
+
+  /// Activate masjid mode — capture state, silence phone, schedule auto-expire.
   Future<void> activate({int durationMinutes = 120}) async {
     final now = DateTime.now();
+
+    // Capture phone state BEFORE silencing so we can restore later
+    _savedPhoneState = await _volumeController.captureCurrentState();
 
     // Silence the phone
     final success = await _volumeController.applySilence();
     if (!success) {
+      _savedPhoneState = null;
       await _eventLog.log(EventType.error, 'Masjid mode failed — DND permission missing');
       return;
     }
@@ -293,10 +322,10 @@ class MasjidModeNotifier extends StateNotifier<MasjidModeState> {
       expiresAt: now.add(Duration(minutes: durationMinutes)),
     );
 
-    // Schedule restore alarm for when masjid mode expires
+    // Schedule masjid-specific restore alarm (requestCode 3000 — won't collide with prayer alarms)
     await _volumeController.scheduleRestoreAlarm(
       triggerAtMs: state.expiresAt!.millisecondsSinceEpoch,
-      requestCode: 3000, // Unique request code for masjid mode
+      requestCode: 3000,
     );
 
     await _eventLog.log(
@@ -305,14 +334,27 @@ class MasjidModeNotifier extends StateNotifier<MasjidModeState> {
     );
   }
 
-  /// Deactivate masjid mode and restore phone state.
+  /// Deactivate masjid mode — restore phone state, then reschedule prayer alarms.
   Future<void> deactivate() async {
     if (!state.isActive) return;
 
-    // Cancel the masjid mode restore alarm
-    await _volumeController.cancelAllAlarms();
+    // Restore phone to pre-masjid state
+    if (_savedPhoneState != null) {
+      await _volumeController.restoreState(_savedPhoneState!);
+      _savedPhoneState = null;
+    }
 
     state = const MasjidModeState();
+
+    // Reschedule prayer alarms (masjid deactivation doesn't change silence windows,
+    // so autoScheduleProvider won't re-run. We must manually reschedule.)
+    final settings = _getSettings();
+    if (settings.autoSilentEnabled) {
+      final windows = _getWindows();
+      if (windows.isNotEmpty) {
+        await _scheduler.scheduleAll(windows);
+      }
+    }
 
     await _eventLog.log(EventType.masjidModeOff, 'Masjid mode deactivated');
   }

@@ -142,7 +142,7 @@ class HomeScreen extends ConsumerWidget {
         const SizedBox(height: 20),
 
         // Masjid mode button
-        _MasjidModeCard(ref: ref),
+        const _MasjidModeCard(),
         const SizedBox(height: 24),
       ],
     );
@@ -182,9 +182,7 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _MasjidModeCard extends ConsumerWidget {
-  final WidgetRef ref;
-
-  const _MasjidModeCard({required this.ref});
+  const _MasjidModeCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
