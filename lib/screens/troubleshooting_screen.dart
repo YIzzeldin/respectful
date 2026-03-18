@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme.dart';
 import '../providers/app_providers.dart';
@@ -65,8 +65,14 @@ class TroubleshootingScreen extends ConsumerWidget {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () {
-                      // Opens battery optimization settings
-                      // Note: exact path varies by OEM
+                      // Open Android battery optimization settings
+                      const platform = MethodChannel('com.respectful/volume_control');
+                      // Fall back to general settings if specific intent isn't available
+                      try {
+                        platform.invokeMethod('openBatterySettings');
+                      } catch (_) {
+                        // If platform method doesn't exist yet, no-op gracefully
+                      }
                     },
                     icon: const Icon(Icons.battery_saver, size: 18),
                     label: const Text('Open Battery Settings'),
@@ -121,14 +127,7 @@ class TroubleshootingScreen extends ConsumerWidget {
   }
 
   String _getManufacturer() {
-    try {
-      // Android only — get device manufacturer
-      if (Platform.isAndroid) {
-        // We can't easily get manufacturer without a plugin,
-        // so we'll show generic guidance with OEM-specific tips
-        return 'generic';
-      }
-    } catch (_) {}
+    // Would need device_info_plus to detect OEM. Show all guides for now.
     return 'generic';
   }
 }

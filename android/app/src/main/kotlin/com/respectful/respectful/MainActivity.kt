@@ -87,6 +87,17 @@ class MainActivity : FlutterActivity() {
                     AlarmScheduler.cancelAllAlarms(this)
                     result.success(true)
                 }
+                "openBatterySettings" -> {
+                    try {
+                        val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        // Fallback to general settings
+                        val intent = Intent(Settings.ACTION_SETTINGS)
+                        startActivity(intent)
+                    }
+                    result.success(true)
+                }
                 else -> {
                     result.notImplemented()
                 }

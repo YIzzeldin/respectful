@@ -210,7 +210,17 @@ final autoScheduleProvider = FutureProvider<void>((ref) async {
   final windows = ref.watch(silenceWindowsProvider);
   final settings = ref.watch(settingsProvider);
 
-  if (!settings.autoSilentEnabled || windows.isEmpty) return;
+  if (!settings.autoSilentEnabled || windows.isEmpty) {
+    // Cancel any existing alarms when disabled
+    if (_lastScheduledHash != 0) {
+      final scheduler = ref.read(silenceSchedulerProvider);
+      await scheduler.cancelAll();
+      _lastScheduledHash = 0;
+      final eventLog = ref.read(eventLogServiceProvider);
+      await eventLog.log(EventType.info, 'Auto-silence disabled — alarms cancelled');
+    }
+    return;
+  }
 
   // Compute a hash of the current windows to detect actual changes.
   // Avoids rescheduling + logging on every ticker invalidation.
