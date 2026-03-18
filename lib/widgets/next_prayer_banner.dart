@@ -8,6 +8,7 @@ class NextPrayerBanner extends StatefulWidget {
   final DateTime prayerTime;
   final bool isSilenced;
   final bool timeBasedEnabled;
+  final bool geofenceEnabled;
 
   const NextPrayerBanner({
     super.key,
@@ -15,6 +16,7 @@ class NextPrayerBanner extends StatefulWidget {
     required this.prayerTime,
     this.isSilenced = false,
     this.timeBasedEnabled = false,
+    this.geofenceEnabled = true,
   });
 
   @override
@@ -43,6 +45,20 @@ class _NextPrayerBannerState extends State<NextPrayerBanner> {
       _remaining = widget.prayerTime.difference(DateTime.now());
       if (_remaining.isNegative) _remaining = Duration.zero;
     });
+  }
+
+  String _getStatusText() {
+    if (widget.isSilenced) return 'Currently silenced';
+    if (widget.timeBasedEnabled && widget.geofenceEnabled) {
+      return 'Silences at masjid or in ${_formatDuration(_remaining)}';
+    }
+    if (widget.geofenceEnabled) {
+      return 'Silences when you enter a saved masjid';
+    }
+    if (widget.timeBasedEnabled) {
+      return 'Silences in ${_formatDuration(_remaining)}';
+    }
+    return '';
   }
 
   String _formatTime(DateTime t) {
@@ -136,7 +152,7 @@ class _NextPrayerBannerState extends State<NextPrayerBanner> {
               ),
             ],
           ),
-          if (widget.isSilenced || widget.timeBasedEnabled) ...[
+          if (widget.isSilenced || widget.timeBasedEnabled || widget.geofenceEnabled) ...[
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -148,15 +164,13 @@ class _NextPrayerBannerState extends State<NextPrayerBanner> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    widget.isSilenced ? Icons.volume_off : Icons.notifications_active,
+                    widget.isSilenced ? Icons.volume_off : Icons.mosque_rounded,
                     size: 14,
                     color: Colors.white,
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    widget.isSilenced
-                        ? 'Currently silenced'
-                        : 'Auto-silence in ${_formatDuration(_remaining)}',
+                    _getStatusText(),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,

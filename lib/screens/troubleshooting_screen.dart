@@ -100,18 +100,19 @@ class TroubleshootingScreen extends ConsumerWidget {
           _SectionTitle('Common Issues'),
           const SizedBox(height: 8),
           _FaqTile(
-            question: 'Phone doesn\'t silence at prayer time',
+            question: 'Phone doesn\'t silence at the masjid',
             answer: '1. Check that DND Access permission is granted\n'
-                '2. Check that Exact Alarms permission is granted\n'
+                '2. Grant "Allow all the time" location permission\n'
                 '3. Disable battery optimization for Respectful\n'
-                '4. Make sure Auto-Silence is enabled in Settings',
+                '4. Make sure Masjid Detection is ON in Settings\n'
+                '5. Save the masjid location in My Masjids',
           ),
           const SizedBox(height: 8),
           _FaqTile(
-            question: 'Phone stays silent after prayer',
-            answer: 'This can happen if the app was force-stopped during a silence window. '
+            question: 'Phone stays silent after leaving the masjid',
+            answer: 'This can happen if the app was force-stopped while you were at the masjid. '
                 'Open the app — it will detect the stale state and restore automatically. '
-                'If the issue persists, toggle Auto-Silence off and on in Settings.',
+                'If the issue persists, use the master toggle (top right) to turn off and on.',
           ),
           const SizedBox(height: 8),
           _FaqTile(

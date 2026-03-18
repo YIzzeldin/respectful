@@ -83,7 +83,7 @@ class ActivityScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Events will appear here once auto-silence starts working.',
+                      'Events will appear here when your phone is silenced at a masjid or during prayer.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13, color: AppColors.textTertiary),
                     ),

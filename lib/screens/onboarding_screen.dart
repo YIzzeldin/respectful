@@ -69,28 +69,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Auto-silence during prayer times',
+            'Silence your phone respectfully',
             style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 40),
 
-          // Feature list
+          // Feature list — lead with masjid detection (main feature)
           _FeatureItem(
-            icon: Icons.volume_off_rounded,
-            title: 'Automatic silence during prayer',
-            subtitle: 'Your phone goes silent when it\'s time to pray',
+            icon: Icons.mosque_rounded,
+            title: 'Smart masjid detection',
+            subtitle: 'Phone silences automatically when you enter a masjid',
+          ),
+          const SizedBox(height: 16),
+          _FeatureItem(
+            icon: Icons.schedule_rounded,
+            title: 'Optional time-based silence',
+            subtitle: 'Silence at prayer times even away from the masjid',
           ),
           const SizedBox(height: 16),
           _FeatureItem(
             icon: Icons.tune_rounded,
-            title: 'Per-prayer customization',
-            subtitle: 'Adjust timing and behavior for each prayer',
-          ),
-          const SizedBox(height: 16),
-          _FeatureItem(
-            icon: Icons.mosque_rounded,
-            title: 'Masjid mode for total focus',
-            subtitle: 'Complete silence when you\'re at the mosque',
+            title: 'Fully customizable',
+            subtitle: 'Per-prayer timing, calculation method, silence level',
           ),
           const SizedBox(height: 40),
 
@@ -290,7 +290,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'These permissions are needed for auto-silence to work reliably.',
+          'These permissions are needed for Respectful to silence your phone.',
           style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 32),
@@ -314,7 +314,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
-                  'Total silence mode will block ALL sounds including calls and alarms during prayer.',
+                  'Total silence mode blocks ALL sounds including calls and alarms while at a masjid or during prayer.',
                   style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                 ),
               ),
