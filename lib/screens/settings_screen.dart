@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../core/theme.dart';
 import '../models/app_settings.dart';
 import '../models/prayer_day.dart';
 import '../models/prayer_timing_config.dart';
 import '../providers/app_providers.dart';
+import '../services/event_log_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -129,6 +131,10 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // Location
+            _LocationCard(settings: settings),
             const SizedBox(height: 32),
           ],
         ),
@@ -303,6 +309,152 @@ class _PerPrayerTimingCard extends StatelessWidget {
             ),
           ),
           const Icon(Icons.chevron_right, size: 18, color: AppColors.textTertiary),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationCard extends ConsumerStatefulWidget {
+  final AppSettings settings;
+
+  const _LocationCard({required this.settings});
+
+  @override
+  ConsumerState<_LocationCard> createState() => _LocationCardState();
+}
+
+class _LocationCardState extends ConsumerState<_LocationCard> {
+  bool _isRefreshing = false;
+
+  Future<void> _refreshLocation() async {
+    setState(() => _isRefreshing = true);
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please enable location services')),
+          );
+        }
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return;
+      }
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission permanently denied')),
+          );
+        }
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+
+      await ref.read(settingsProvider.notifier).setLocation(
+            position.latitude,
+            position.longitude,
+          );
+
+      await ref.read(eventLogServiceProvider).log(
+            EventType.info,
+            'Location manually refreshed '
+            '(${position.latitude.toStringAsFixed(2)}, '
+            '${position.longitude.toStringAsFixed(2)})',
+          );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location updated — prayer times recalculated'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to get location: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasLocation = widget.settings.hasLocation;
+    final lat = widget.settings.latitude?.toStringAsFixed(4) ?? '—';
+    final lng = widget.settings.longitude?.toStringAsFixed(4) ?? '—';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Location',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(
+                Icons.location_on,
+                size: 18,
+                color: hasLocation ? AppColors.primary : AppColors.textTertiary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                hasLocation ? '$lat, $lng' : 'Not set',
+                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Updates automatically when you travel >10km',
+            style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _isRefreshing ? null : _refreshLocation,
+              icon: _isRefreshing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.my_location, size: 18),
+              label: Text(_isRefreshing ? 'Updating...' : 'Update Location Now'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                side: const BorderSide(color: AppColors.primary),
+              ),
+            ),
+          ),
         ],
       ),
     );
