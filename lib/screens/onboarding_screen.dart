@@ -141,7 +141,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 16),
           // Progress
@@ -156,11 +155,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
           const SizedBox(height: 32),
 
-          if (_step == 1) _buildLocationStep(),
-          if (_step == 2) _buildMethodStep(),
-          if (_step == 3) _buildPermissionStep(),
+          // Scrollable step content
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_step == 1) _buildLocationStep(),
+                  if (_step == 2) _buildMethodStep(),
+                  if (_step == 3) _buildPermissionStep(),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
 
-          const Spacer(),
+          // Fixed button at bottom
           SizedBox(
             width: double.infinity,
             height: 56,
