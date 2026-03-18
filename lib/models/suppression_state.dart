@@ -14,6 +14,14 @@ class TimeReason extends SuppressionReason {
     required this.windowEnd,
     required this.activatedAt,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TimeReason && prayerName == other.prayerName;
+
+  @override
+  int get hashCode => prayerName.hashCode;
 }
 
 class GeoReason extends SuppressionReason {
@@ -27,6 +35,14 @@ class GeoReason extends SuppressionReason {
     required this.masjidName,
     required this.activatedAt,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GeoReason && masjidId == other.masjidId;
+
+  @override
+  int get hashCode => masjidId.hashCode;
 }
 
 /// Captured phone state before silencing — used to restore after prayer.

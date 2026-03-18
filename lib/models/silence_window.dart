@@ -62,9 +62,12 @@ class SilenceWindow {
     );
   }
 
-  /// Unique alarm IDs based on prayer index.
-  int get silenceAlarmId => 1000 + prayer.index;
-  int get restoreAlarmId => 2000 + prayer.index;
+  /// Unique alarm IDs incorporating date + prayer to avoid collisions
+  /// when today's and tomorrow's Fajr are both scheduled.
+  int get silenceAlarmId =>
+      1000 + (start.day * 10) + prayer.index;
+  int get restoreAlarmId =>
+      2000 + (end.day * 10) + prayer.index;
 
   Map<String, dynamic> toJson() => {
         'prayer': prayer.name,
