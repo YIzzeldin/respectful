@@ -464,6 +464,14 @@ class MasjidScreen extends ConsumerWidget {
     );
     if (confirm == true) {
       await ref.read(savedMasjidsProvider.notifier).remove(masjid.id);
+
+      // If no masjids left, restore phone immediately
+      final remaining = ref.read(savedMasjidsProvider);
+      if (remaining.isEmpty) {
+        final controller = ref.read(volumeControllerProvider);
+        await controller.forceRestoreNormal();
+        ref.invalidate(geoSilencedProvider);
+      }
     }
   }
 }
