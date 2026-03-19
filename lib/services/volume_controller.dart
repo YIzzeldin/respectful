@@ -108,6 +108,12 @@ class VolumeController {
     return await _channel.invokeMethod<bool>('hasBackgroundLocationPermission') ?? false;
   }
 
+  /// Silence phone AND mark geo_silenced=true in native SharedPreferences.
+  /// Use when manually detecting the user is at a masjid (not via geofence event).
+  Future<bool> applySilenceForGeo() async {
+    return await _channel.invokeMethod<bool>('applySilenceForGeo') ?? false;
+  }
+
   /// Force phone back to normal — ringer normal + DND all + clear all silence state.
   Future<bool> forceRestoreNormal() async {
     return await _channel.invokeMethod<bool>('forceRestoreNormal') ?? false;

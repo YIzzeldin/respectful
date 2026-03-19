@@ -358,7 +358,7 @@ class HomeScreen extends ConsumerWidget {
 
         if (!distance) {
           // Within 200m of a saved masjid — silence immediately
-          await controller.applySilence();
+          await controller.applySilenceForGeo();
           ref.invalidate(geoSilencedProvider);
           break;
         }

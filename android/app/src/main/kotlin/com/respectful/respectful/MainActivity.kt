@@ -138,6 +138,27 @@ class MainActivity : FlutterActivity() {
                     ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                     result.success(granted)
                 }
+                "applySilenceForGeo" -> {
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    val alreadyGeo = prefs.getBoolean("geo_silenced", false)
+
+                    // Capture state BEFORE silencing
+                    if (!alreadyGeo) {
+                        val state = volumeService.captureCurrentState()
+                        prefs.edit()
+                            .putInt("geo_saved_ringer_mode", state["ringerMode"] as Int)
+                            .putInt("geo_saved_interruption_filter", state["interruptionFilter"] as Int)
+                            .putInt("geo_saved_ring_volume", state["ringVolume"] as Int)
+                            .putInt("geo_saved_notification_volume", state["notificationVolume"] as Int)
+                            .commit()
+                    }
+
+                    val success = volumeService.applySilence()
+                    if (success) {
+                        prefs.edit().putBoolean("geo_silenced", true).commit()
+                    }
+                    result.success(success)
+                }
                 "forceRestoreNormal" -> {
                     val nm = getSystemService(android.app.NotificationManager::class.java)
                     val am = getSystemService(android.media.AudioManager::class.java) as android.media.AudioManager

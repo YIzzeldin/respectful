@@ -299,7 +299,7 @@ class MasjidScreen extends ConsumerWidget {
           thresholdKm: 0.2,
         );
         if (isNearby) {
-          await ref.read(volumeControllerProvider).applySilence();
+          await ref.read(volumeControllerProvider).applySilenceForGeo();
           ref.invalidate(geoSilencedProvider);
         }
       }

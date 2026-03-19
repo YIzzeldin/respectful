@@ -110,7 +110,7 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
           thresholdKm: 0.2,
         );
         if (isNearby) {
-          await ref.read(volumeControllerProvider).applySilence();
+          await ref.read(volumeControllerProvider).applySilenceForGeo();
           ref.invalidate(geoSilencedProvider);
         }
       } catch (_) {}
