@@ -94,6 +94,28 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
           'Saved masjid from map: $name',
         );
 
+    // Check if user is near this location — silence immediately if so
+    final settings = ref.read(settingsProvider);
+    if (settings.geofenceSilenceEnabled) {
+      try {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        );
+        final locationService = ref.read(locationServiceProvider);
+        final isNearby = !locationService.hasMovedSignificantly(
+          storedLat: masjid.latitude,
+          storedLng: masjid.longitude,
+          currentLat: position.latitude,
+          currentLng: position.longitude,
+          thresholdKm: 0.2,
+        );
+        if (isNearby) {
+          await ref.read(volumeControllerProvider).applySilence();
+          ref.invalidate(geoSilencedProvider);
+        }
+      } catch (_) {}
+    }
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -286,6 +286,24 @@ class MasjidScreen extends ConsumerWidget {
             'Saved masjid: $name (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})',
           );
 
+      // If user is at this masjid right now (saving current location), silence immediately
+      // Android geofences won't fire ENTER if already inside when registered
+      final settings = ref.read(settingsProvider);
+      if (settings.geofenceSilenceEnabled) {
+        final locationService = ref.read(locationServiceProvider);
+        final isNearby = !locationService.hasMovedSignificantly(
+          storedLat: masjid.latitude,
+          storedLng: masjid.longitude,
+          currentLat: position.latitude,
+          currentLng: position.longitude,
+          thresholdKm: 0.2,
+        );
+        if (isNearby) {
+          await ref.read(volumeControllerProvider).applySilence();
+          ref.invalidate(geoSilencedProvider);
+        }
+      }
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
