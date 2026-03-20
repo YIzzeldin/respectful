@@ -476,22 +476,22 @@ class MasjidScreen extends ConsumerWidget {
     if (confirm == true) {
       await ref.read(savedMasjidsProvider.notifier).remove(masjid.id);
 
-      // Check if still inside any remaining masjid
-      final isSilenced = ref.read(geoSilencedProvider).valueOrNull ?? false;
-      if (isSilenced) {
+      // After deleting, check if user is still near any remaining masjid.
+      // If not, clear silence. Read native state directly (not cached provider).
+      final controller = ref.read(volumeControllerProvider);
+      final isGeoSilenced = await controller.isGeoSilenced();
+
+      if (isGeoSilenced) {
         final remaining = ref.read(savedMasjidsProvider);
-        if (remaining.isEmpty) {
-          // No masjids left — clear silence
-          await ref.read(volumeControllerProvider).clearGeoSilence();
-          ref.invalidate(geoSilencedProvider);
-        } else {
-          // Check if user is inside any remaining masjid
+        bool shouldClear = true;
+
+        if (remaining.isNotEmpty) {
           try {
             final position = await Geolocator.getCurrentPosition(
               locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
             );
             final locationService = ref.read(locationServiceProvider);
-            final stillInside = remaining.any((m) =>
+            shouldClear = !remaining.any((m) =>
               !locationService.hasMovedSignificantly(
                 storedLat: m.latitude,
                 storedLng: m.longitude,
@@ -500,13 +500,14 @@ class MasjidScreen extends ConsumerWidget {
                 thresholdKm: 0.2,
               ),
             );
-            if (!stillInside) {
-              await ref.read(volumeControllerProvider).clearGeoSilence();
-              ref.invalidate(geoSilencedProvider);
-            }
           } catch (_) {
-            // GPS failed — leave state as is, geofence exit will handle it
+            shouldClear = remaining.isEmpty;
           }
+        }
+
+        if (shouldClear) {
+          await controller.clearGeoSilence();
+          ref.invalidate(geoSilencedProvider);
         }
       }
     }
