@@ -242,6 +242,31 @@ class MasjidScreen extends ConsumerWidget {
 
       if (!context.mounted) return;
 
+      // Check if there's already a saved masjid within 200m
+      final existing = ref.read(savedMasjidsProvider);
+      final locationService = ref.read(locationServiceProvider);
+      final nearbyMasjid = existing.cast<SavedMasjid?>().firstWhere(
+        (m) => !locationService.hasMovedSignificantly(
+          storedLat: m!.latitude,
+          storedLng: m.longitude,
+          currentLat: position.latitude,
+          currentLng: position.longitude,
+          thresholdKm: 0.2,
+        ),
+        orElse: () => null,
+      );
+      if (nearbyMasjid != null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Already saved: "${nearbyMasjid.name}" is nearby'),
+              backgroundColor: AppColors.warning,
+            ),
+          );
+        }
+        return;
+      }
+
       // Auto-detect address for pre-filling the name
       String suggestedName = 'Masjid ${ref.read(savedMasjidsProvider).length + 1}';
       try {

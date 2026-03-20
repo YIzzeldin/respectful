@@ -71,6 +71,32 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
 
     setState(() => _isLoading = true);
 
+    // Check for nearby duplicate
+    final existing = ref.read(savedMasjidsProvider);
+    final locationService = ref.read(locationServiceProvider);
+    final nearbyMasjid = existing.cast<SavedMasjid?>().firstWhere(
+      (m) => !locationService.hasMovedSignificantly(
+        storedLat: m!.latitude,
+        storedLng: m.longitude,
+        currentLat: _selectedLocation!.latitude,
+        currentLng: _selectedLocation!.longitude,
+        thresholdKm: 0.2,
+      ),
+      orElse: () => null,
+    );
+    if (nearbyMasjid != null) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Already saved: "${nearbyMasjid.name}" is nearby'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+      }
+      return;
+    }
+
     final suggestedName = _addressLabel ??
         'Masjid ${ref.read(savedMasjidsProvider).length + 1}';
 
