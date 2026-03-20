@@ -238,7 +238,16 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => ref.read(masjidModeProvider.notifier).deactivate(),
+                  onTap: () async {
+                    // Works for both manual masjid mode and auto-geofence
+                    if (ref.read(masjidModeProvider).isActive) {
+                      ref.read(masjidModeProvider.notifier).deactivate();
+                    } else {
+                      // Auto-geofence — clear geo silence directly
+                      await ref.read(volumeControllerProvider).clearGeoSilence();
+                    }
+                    ref.invalidate(geoSilencedProvider);
+                  },
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(

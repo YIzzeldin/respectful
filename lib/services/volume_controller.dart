@@ -114,6 +114,12 @@ class VolumeController {
     return await _channel.invokeMethod<bool>('applySilenceForGeo') ?? false;
   }
 
+  /// Clear geo silence only — restores phone if prayer is not active.
+  /// If prayer IS active, just clears geo flags without touching DND.
+  Future<bool> clearGeoSilence() async {
+    return await _channel.invokeMethod<bool>('clearGeoSilence') ?? false;
+  }
+
   /// Force phone back to normal — ringer normal + DND all + clear all silence state.
   Future<bool> forceRestoreNormal() async {
     return await _channel.invokeMethod<bool>('forceRestoreNormal') ?? false;

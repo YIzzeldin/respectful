@@ -3,6 +3,7 @@ package com.respectful.respectful
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -141,9 +142,13 @@ class MainActivity : FlutterActivity() {
                 "applySilenceForGeo" -> {
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
                     val alreadyGeo = prefs.getBoolean("geo_silenced", false)
+                    val isPrayerSilenced = prefs.getBoolean("is_silenced", false)
 
-                    // Capture state BEFORE silencing
-                    if (!alreadyGeo) {
+                    // Only capture geo snapshot if nothing is currently silencing.
+                    // If prayer is active, the phone is already silenced — capturing
+                    // now would store a silenced state as the "restore" target.
+                    // Same guard as GeofenceReceiver.handleEnterMasjid.
+                    if (!alreadyGeo && !isPrayerSilenced) {
                         val state = volumeService.captureCurrentState()
                         prefs.edit()
                             .putInt("geo_saved_ringer_mode", state["ringerMode"] as Int)
@@ -158,6 +163,42 @@ class MainActivity : FlutterActivity() {
                         prefs.edit().putBoolean("geo_silenced", true).commit()
                     }
                     result.success(success)
+                }
+                "clearGeoSilence" -> {
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    val isPrayerActive = prefs.getBoolean("is_silenced", false)
+
+                    if (isPrayerActive) {
+                        // Prayer is active — just clear geo flags, keep phone silent
+                        prefs.edit()
+                            .putBoolean("geo_silenced", false)
+                            .remove("active_masjid_geofences")
+                            .remove("geo_saved_ringer_mode")
+                            .remove("geo_saved_interruption_filter")
+                            .remove("geo_saved_ring_volume")
+                            .remove("geo_saved_notification_volume")
+                            .commit()
+                        Log.d("Respectful", "Cleared geo state, prayer still active — staying silent")
+                    } else {
+                        // Nothing else keeping it silent — restore from geo snapshot
+                        val savedState = mapOf(
+                            "ringerMode" to prefs.getInt("geo_saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
+                            "interruptionFilter" to prefs.getInt("geo_saved_interruption_filter", android.app.NotificationManager.INTERRUPTION_FILTER_ALL),
+                            "ringVolume" to prefs.getInt("geo_saved_ring_volume", 5),
+                            "notificationVolume" to prefs.getInt("geo_saved_notification_volume", 5)
+                        )
+                        volumeService.restoreState(savedState)
+                        prefs.edit()
+                            .putBoolean("geo_silenced", false)
+                            .remove("active_masjid_geofences")
+                            .remove("geo_saved_ringer_mode")
+                            .remove("geo_saved_interruption_filter")
+                            .remove("geo_saved_ring_volume")
+                            .remove("geo_saved_notification_volume")
+                            .commit()
+                        Log.d("Respectful", "Cleared geo state and restored phone")
+                    }
+                    result.success(true)
                 }
                 "forceRestoreNormal" -> {
                     val nm = getSystemService(android.app.NotificationManager::class.java)
