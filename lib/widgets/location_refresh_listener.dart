@@ -45,6 +45,8 @@ class _LocationRefreshListenerState
     ref.invalidate(exactAlarmPermissionProvider);
     // Import any native events that happened while app was backgrounded/dead
     ref.invalidate(importNativeEventsProvider);
+    // Refresh geo state — native side may have changed while app was backgrounded
+    ref.invalidate(geoSilencedProvider);
   }
 
   @override

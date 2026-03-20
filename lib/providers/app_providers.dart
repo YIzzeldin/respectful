@@ -161,7 +161,7 @@ final currentDateProvider = StreamProvider<DateTime>((ref) {
 });
 
 final currentMinuteProvider = StreamProvider<DateTime>((ref) {
-  return Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now());
+  return Stream.periodic(const Duration(seconds: 10), (_) => DateTime.now());
 });
 
 // --- Prayer Times ---
