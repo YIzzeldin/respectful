@@ -17,7 +17,7 @@ class AppLocalizations {
   // --- General ---
   String get appName => isArabic ? 'محترم' : 'Respectful';
   String get appTagline => isArabic
-      ? 'كتم صوت هاتفك باحترام'
+      ? 'إصمات هاتفك باحترام'
       : 'Silence your phone respectfully';
 
   // --- Home Screen ---
@@ -30,28 +30,28 @@ class AppLocalizations {
       ? 'اضغط لإضافة موقع مسجد'
       : 'Tap to add a masjid location';
   String savedMasjidsCount(int count) => isArabic
-      ? '$count محفوظ • كتم تلقائي عند الدخول'
+      ? '$count محفوظ • إصمات تلقائي عند الدخول'
       : '$count saved • auto-silence on entry';
   String get youAreAtMasjid => isArabic
       ? 'أنت في المسجد'
       : 'You are at a masjid';
   String get phoneSilencedAutoDetected => isArabic
-      ? 'الهاتف مكتوم — تم الكشف تلقائياً'
+      ? 'الهاتف صامت — تم الكشف تلقائياً'
       : 'Phone silenced — auto-detected';
   String get currentlySilenced => isArabic
-      ? 'الهاتف مكتوم حالياً'
+      ? 'الهاتف صامت حالياً'
       : 'Currently silenced';
   String get silencesAtMasjid => isArabic
-      ? 'يكتم عند دخول مسجد محفوظ'
+      ? 'يُصمت عند دخول مسجد محفوظ'
       : 'Silences when you enter a saved masjid';
   String silencesAtMasjidOrIn(String time) => isArabic
-      ? 'يكتم عند المسجد أو خلال $time'
+      ? 'يُصمت عند المسجد أو خلال $time'
       : 'Silences at masjid or in $time';
   String silencesIn(String time) => isArabic
-      ? 'يكتم خلال $time'
+      ? 'يُصمت خلال $time'
       : 'Silences in $time';
   String get youAreAtMasjidSilenced => isArabic
-      ? 'أنت في المسجد — الهاتف مكتوم'
+      ? 'أنت في المسجد — الهاتف صامت'
       : 'You are at a masjid — phone silenced';
 
   // --- Prayer Names ---
@@ -64,26 +64,26 @@ class AppLocalizations {
 
   // --- Settings ---
   String get settings => isArabic ? 'الإعدادات' : 'Settings';
-  String get silenceModes => isArabic ? 'أوضاع الكتم' : 'Silence Modes';
+  String get silenceModes => isArabic ? 'أوضاع الصمت' : 'Silence Modes';
   String get masjidDetection => isArabic
       ? 'كشف المسجد'
       : 'Masjid Detection';
   String get masjidDetectionDesc => isArabic
-      ? 'كتم تلقائي عند الاقتراب من مسجد محفوظ'
+      ? 'إصمات تلقائي عند الاقتراب من مسجد محفوظ'
       : 'Auto-silence when near a saved masjid';
   String get timeBasedSilence => isArabic
-      ? 'كتم حسب الوقت'
+      ? 'صمت حسب الوقت'
       : 'Time-Based Silence';
   String get timeBasedSilenceDesc => isArabic
-      ? 'كتم تلقائي في أوقات الصلاة'
+      ? 'إصمات تلقائي في أوقات الصلاة'
       : 'Auto-silence at prayer times';
-  String get silenceLevel => isArabic ? 'مستوى الكتم' : 'Silence Level';
-  String get totalSilence => isArabic ? 'كتم كامل' : 'Total Silence';
+  String get silenceLevel => isArabic ? 'مستوى الصمت' : 'Silence Level';
+  String get totalSilence => isArabic ? 'صمت كامل' : 'Total Silence';
   String get totalSilenceDesc => isArabic
       ? 'يمنع كل شيء بما في ذلك المنبهات والمكالمات'
       : 'Blocks everything including alarms and calls';
   String get prioritySilence => isArabic
-      ? 'كتم الأولوية (موصى به)'
+      ? 'صمت الأولوية (موصى به)'
       : 'Priority Silence (Recommended)';
   String get prioritySilenceDesc => isArabic
       ? 'يمنع الإشعارات، يسمح بالمنبهات والمكالمات المميزة'
@@ -171,38 +171,38 @@ class AppLocalizations {
       ? 'صلاحية عدم الإزعاج'
       : 'Do Not Disturb Access';
   String get dndAccessDesc => isArabic
-      ? 'مطلوب لكتم هاتفك تلقائياً'
+      ? 'مطلوب لإصمات هاتفك تلقائياً'
       : 'Required to silence your phone automatically';
   String get smartMasjidDetection => isArabic
       ? 'كشف ذكي للمسجد'
       : 'Smart masjid detection';
   String get smartMasjidDesc => isArabic
-      ? 'يكتم الهاتف تلقائياً عند دخولك المسجد'
+      ? 'يُصمت الهاتف تلقائياً عند دخولك المسجد'
       : 'Phone silences automatically when you enter a masjid';
   String get optionalTimeBased => isArabic
-      ? 'كتم حسب الوقت (اختياري)'
+      ? 'صمت حسب الوقت (اختياري)'
       : 'Optional time-based silence';
   String get optionalTimeBasedDesc => isArabic
-      ? 'كتم في أوقات الصلاة حتى بعيداً عن المسجد'
+      ? 'صمت في أوقات الصلاة حتى بعيداً عن المسجد'
       : 'Silence at prayer times even away from the masjid';
   String get fullyCustomizable => isArabic
       ? 'قابل للتخصيص بالكامل'
       : 'Fully customizable';
   String get fullyCustomizableDesc => isArabic
-      ? 'توقيت لكل صلاة، طريقة حساب، مستوى كتم'
+      ? 'توقيت لكل صلاة، طريقة حساب، مستوى صمت'
       : 'Per-prayer timing, calculation method, silence level';
 
   // --- Activity ---
   String get activity => isArabic ? 'النشاط' : 'Activity';
   String get last7Days => isArabic ? 'آخر 7 أيام' : 'Last 7 days';
-  String get silenced => isArabic ? 'مكتوم' : 'Silenced';
+  String get silenced => isArabic ? 'صامت' : 'Silenced';
   String get overrides => isArabic ? 'تجاوزات' : 'Overrides';
   String get restored => isArabic ? 'مُستعاد' : 'Restored';
   String get noActivityYet => isArabic
       ? 'لا يوجد نشاط بعد'
       : 'No activity yet';
   String get noActivityDesc => isArabic
-      ? 'ستظهر الأحداث هنا عند كتم هاتفك في المسجد أو أثناء الصلاة.'
+      ? 'ستظهر الأحداث هنا عند إصمات هاتفك في المسجد أو أثناء الصلاة.'
       : 'Events will appear here when your phone is silenced at a masjid or during prayer.';
   String get today => isArabic ? 'اليوم' : 'Today';
 
@@ -222,7 +222,7 @@ class AppLocalizations {
 
   // --- Timing Editor ---
   String get autoSilenceForPrayer => isArabic
-      ? 'كتم تلقائي لهذه الصلاة'
+      ? 'إصمات تلقائي لهذه الصلاة'
       : 'Auto-silence for this prayer';
   String get resetToDefaults => isArabic
       ? 'إعادة للافتراضي'
@@ -237,7 +237,7 @@ class AppLocalizations {
   String get fix => isArabic ? 'إصلاح' : 'Fix';
   String get batteryOptimization => isArabic ? 'تحسين البطارية' : 'Battery Optimization';
   String get batteryDesc => isArabic
-      ? 'لكتم موثوق، عطّل تحسين البطارية لتطبيق محترم.'
+      ? 'لإصمات موثوق، عطّل تحسين البطارية لتطبيق محترم.'
       : 'For reliable auto-silence, disable battery optimization for Respectful.';
   String get openBatterySettings => isArabic ? 'فتح إعدادات البطارية' : 'Open Battery Settings';
   String get deviceGuide => isArabic ? 'دليل الجهاز' : 'Device-Specific Guide';
@@ -246,7 +246,7 @@ class AppLocalizations {
       : 'Some phone manufacturers aggressively kill background apps. Follow the steps for your device brand:';
   String get commonIssues => isArabic ? 'مشاكل شائعة' : 'Common Issues';
   String phoneSilencedSaved(String name) => isArabic
-      ? 'تم حفظ "$name" — الهاتف مكتوم'
+      ? 'تم حفظ "$name" — الهاتف صامت'
       : 'Saved "$name" — phone silenced';
   String saved(String name) => isArabic ? 'تم حفظ "$name"' : 'Saved "$name"';
   String get locationUpdated => isArabic
@@ -271,7 +271,7 @@ class AppLocalizations {
       ? 'اختر طريقة حساب أوقات الصلاة المستخدمة في منطقتك.'
       : 'Choose the prayer time calculation method used in your region.';
   String get totalSilenceWarning => isArabic
-      ? 'الكتم الكامل يمنع كل الأصوات بما فيها المكالمات والمنبهات أثناء التواجد في المسجد أو وقت الصلاة.'
+      ? 'الصمت الكامل يمنع كل الأصوات بما فيها المكالمات والمنبهات أثناء التواجد في المسجد أو وقت الصلاة.'
       : 'Total silence mode blocks ALL sounds including calls and alarms while at a masjid or during prayer.';
   String get pleaseEnableLocation => isArabic
       ? 'يرجى تفعيل خدمات الموقع'
@@ -296,7 +296,7 @@ class AppLocalizations {
       ? 'نظام تحديد المواقع غير متاح — إعادة المحاولة خلال 30 ثانية (محاولة $attempt/$max)'
       : 'GPS unavailable — retrying in 30s (attempt $attempt/$max)';
   String get gpsFailed => isArabic
-      ? 'فشل نظام تحديد المواقع — إلغاء الكتم لتجنب التعليق'
+      ? 'فشل نظام تحديد المواقع — إلغاء الصمت لتجنب التعليق'
       : 'GPS failed — clearing silence to avoid stuck state';
   String get masterOffRestored => isArabic
       ? 'زر الإيقاف الرئيسي — تم استعادة الهاتف للوضع العادي'
