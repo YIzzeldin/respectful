@@ -20,10 +20,12 @@ class ActivityScreen extends ConsumerWidget {
       grouped.putIfAbsent(dayKey, () => []).add(entry);
     }
 
-    // Stats
-    final silenced = entries.where((e) => e.type == EventType.silenced).length;
+    // Stats — count both prayer silence and geofence events
+    final silenced = entries.where((e) =>
+        e.type == EventType.silenced || e.type == EventType.geofenceEnter).length;
     final overrides = entries.where((e) => e.type == EventType.overrideDetected).length;
-    final restored = entries.where((e) => e.type == EventType.restored).length;
+    final restored = entries.where((e) =>
+        e.type == EventType.restored || e.type == EventType.geofenceExit).length;
     final restoreRate = silenced > 0 ? ((restored / silenced) * 100).round() : 100;
 
     return Scaffold(
