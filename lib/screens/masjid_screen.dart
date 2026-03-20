@@ -449,6 +449,67 @@ class MasjidScreen extends ConsumerWidget {
     );
   }
 
+  /// Retries GPS until successful, then compares against remaining masjids.
+  /// Shows the user feedback on each retry.
+  Future<void> _checkLocationAndClearIfNeeded(
+    BuildContext context, WidgetRef ref, List<SavedMasjid> remaining,
+  ) async {
+    final controller = ref.read(volumeControllerProvider);
+    final locationService = ref.read(locationServiceProvider);
+
+    for (int attempt = 1; attempt <= 5; attempt++) {
+      try {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 10),
+          ),
+        );
+
+        final stillInside = remaining.any((m) =>
+          !locationService.hasMovedSignificantly(
+            storedLat: m.latitude,
+            storedLng: m.longitude,
+            currentLat: position.latitude,
+            currentLng: position.longitude,
+            thresholdKm: 0.2,
+          ),
+        );
+
+        if (!stillInside) {
+          await controller.clearGeoSilence();
+          ref.invalidate(geoSilencedProvider);
+        }
+        return; // GPS succeeded — done
+      } catch (_) {
+        // GPS failed — show user and retry
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('GPS unavailable — retrying in 30s (attempt $attempt/5)'),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        if (attempt < 5) {
+          await Future.delayed(const Duration(seconds: 30));
+        }
+      }
+    }
+
+    // All retries exhausted — clear anyway to avoid stuck state
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('GPS failed after 5 attempts — clearing silence'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+    }
+    await controller.clearGeoSilence();
+    ref.invalidate(geoSilencedProvider);
+  }
+
   void _renameMasjid(BuildContext context, WidgetRef ref, SavedMasjid masjid) async {
     final controller = TextEditingController(text: masjid.name);
     final newName = await showDialog<String>(
@@ -512,36 +573,7 @@ class MasjidScreen extends ConsumerWidget {
         // Still have masjids — check if near any remaining one
         final isGeoSilenced = await controller.isGeoSilenced();
         if (isGeoSilenced) {
-          // Get current position, fall back to deleted masjid's coords
-          double lat = masjid.latitude;
-          double lng = masjid.longitude;
-          try {
-            final position = await Geolocator.getCurrentPosition(
-              locationSettings: const LocationSettings(
-                accuracy: LocationAccuracy.high,
-                timeLimit: Duration(seconds: 5),
-              ),
-            );
-            lat = position.latitude;
-            lng = position.longitude;
-          } catch (_) {
-            // GPS failed — use deleted masjid's coords as approximation
-          }
-
-          final locationService = ref.read(locationServiceProvider);
-          final stillInside = remaining.any((m) =>
-            !locationService.hasMovedSignificantly(
-              storedLat: m.latitude,
-              storedLng: m.longitude,
-              currentLat: lat,
-              currentLng: lng,
-              thresholdKm: 0.2,
-            ),
-          );
-          if (!stillInside) {
-            await controller.clearGeoSilence();
-            ref.invalidate(geoSilencedProvider);
-          }
+          _checkLocationAndClearIfNeeded(context, ref, remaining);
         }
       }
     }
