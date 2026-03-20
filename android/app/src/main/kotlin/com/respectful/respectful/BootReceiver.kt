@@ -108,9 +108,9 @@ class BootReceiver : BroadcastReceiver() {
             return
         }
 
-        // Check if geofence silence is enabled
-        val geofenceEnabled = flutterPrefs.getString("flutter.geofence_silence_enabled", null)
-        if (geofenceEnabled == "false") {
+        // Check if geofence silence is enabled (Flutter stores as bool)
+        val geofenceEnabled = flutterPrefs.getBoolean("flutter.geofence_silence_enabled", true)
+        if (!geofenceEnabled) {
             Log.d(TAG, "Geofence silence disabled — skipping registration")
             return
         }

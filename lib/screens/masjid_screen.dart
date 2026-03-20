@@ -15,7 +15,6 @@ class MasjidScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final masjids = ref.watch(savedMasjidsProvider);
-    final masjidMode = ref.watch(masjidModeProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -41,7 +40,7 @@ class MasjidScreen extends ConsumerWidget {
       ),
       body: masjids.isEmpty
           ? _buildEmpty(context, ref)
-          : _buildList(context, ref, masjids, masjidMode),
+          : _buildList(context, ref, masjids),
     );
   }
 
@@ -91,7 +90,7 @@ class MasjidScreen extends ConsumerWidget {
   }
 
   Widget _buildList(BuildContext context, WidgetRef ref,
-      List<SavedMasjid> masjids, MasjidModeState masjidMode) {
+      List<SavedMasjid> masjids) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       itemCount: masjids.length + 2, // +1 for bg location banner, +1 for add button

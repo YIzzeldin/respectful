@@ -289,14 +289,27 @@ final autoScheduleProvider = FutureProvider<void>((ref) async {
 });
 
 // --- Geofence State (reads native geo_silenced flag) ---
-// Polls every 30 seconds to detect native geofence enter/exit events.
+// Polls every 30 seconds. Logs transitions for the activity screen.
+
+bool _lastGeoState = false;
 
 final geoSilencedProvider = FutureProvider<bool>((ref) async {
   ref.watch(currentMinuteProvider); // refresh every 30s
   final controller = ref.read(volumeControllerProvider);
-  return controller.isGeoSilenced();
-});
+  final current = await controller.isGeoSilenced();
 
+  if (current != _lastGeoState) {
+    final eventLog = ref.read(eventLogServiceProvider);
+    if (current) {
+      await eventLog.log(EventType.geofenceEnter, 'Entered masjid - phone silenced');
+    } else {
+      await eventLog.log(EventType.geofenceExit, 'Left masjid - phone restored');
+    }
+    _lastGeoState = current;
+  }
+
+  return current;
+});
 final activeMasjidGeofencesProvider = FutureProvider<List<String>>((ref) async {
   ref.watch(currentMinuteProvider);
   final controller = ref.read(volumeControllerProvider);
@@ -342,148 +355,7 @@ final autoGeofenceProvider = FutureProvider<void>((ref) async {
   );
 });
 
-// --- Masjid Mode ---
-
-final masjidModeProvider =
-    StateNotifierProvider<MasjidModeNotifier, MasjidModeState>((ref) {
-  return MasjidModeNotifier(
-    ref.watch(volumeControllerProvider),
-    ref.watch(eventLogServiceProvider),
-    ref.watch(silenceSchedulerProvider),
-    () => ref.read(silenceWindowsProvider), // lazy read to avoid circular dep
-    () => ref.read(settingsProvider),
-  );
-});
-
-class MasjidModeState {
-  final bool isActive;
-  final DateTime? activatedAt;
-  final DateTime? expiresAt;
-  final bool isOverridden;
-  final DateTime? overrideExpiresAt;
-
-  const MasjidModeState({
-    this.isActive = false,
-    this.activatedAt,
-    this.expiresAt,
-    this.isOverridden = false,
-    this.overrideExpiresAt,
-  });
-
-  Duration? get remainingTime {
-    if (!isActive || expiresAt == null) return null;
-    final remaining = expiresAt!.difference(DateTime.now());
-    return remaining.isNegative ? Duration.zero : remaining;
-  }
-
-  MasjidModeState copyWith({
-    bool? isActive,
-    DateTime? activatedAt,
-    DateTime? expiresAt,
-    bool? isOverridden,
-    DateTime? overrideExpiresAt,
-  }) =>
-      MasjidModeState(
-        isActive: isActive ?? this.isActive,
-        activatedAt: activatedAt ?? this.activatedAt,
-        expiresAt: expiresAt ?? this.expiresAt,
-        isOverridden: isOverridden ?? this.isOverridden,
-        overrideExpiresAt: overrideExpiresAt ?? this.overrideExpiresAt,
-      );
-}
-
-class MasjidModeNotifier extends StateNotifier<MasjidModeState> {
-  final VolumeController _volumeController;
-  final EventLogService _eventLog;
-  final SilenceScheduler _scheduler;
-  final List<SilenceWindow> Function() _getWindows;
-  final AppSettings Function() _getSettings;
-
-
-  MasjidModeNotifier(
-    this._volumeController,
-    this._eventLog,
-    this._scheduler,
-    this._getWindows,
-    this._getSettings,
-  ) : super(const MasjidModeState());
-
-  /// Activate masjid mode — capture state, silence phone, schedule auto-expire.
-  Future<void> activate({int durationMinutes = 120}) async {
-    // Guard against reentrant calls — don't overwrite snapshot if already active
-    if (state.isActive) return;
-
-    final now = DateTime.now();
-
-    // Silence the phone — applySilenceForGeo captures state on native side
-    // before silencing, so it's durable across process death
-    final success = await _volumeController.applySilenceForGeo();
-    if (!success) {
-      await _eventLog.log(EventType.error, 'Masjid mode failed — DND permission missing');
-      return;
-    }
-
-    state = MasjidModeState(
-      isActive: true,
-      activatedAt: now,
-      expiresAt: now.add(Duration(minutes: durationMinutes)),
-    );
-
-    // Schedule masjid-specific restore alarm (requestCode 3000 — won't collide with prayer alarms)
-    await _volumeController.scheduleRestoreAlarm(
-      triggerAtMs: state.expiresAt!.millisecondsSinceEpoch,
-      requestCode: 3000,
-    );
-
-    await _eventLog.log(
-      EventType.masjidModeOn,
-      'Masjid mode activated (${durationMinutes}m)',
-    );
-  }
-
-  /// Deactivate masjid mode — clear geo silence, restore only if prayer isn't active.
-  Future<void> deactivate() async {
-    if (!state.isActive) return;
-
-    // Clear geo silence — if prayer is active, phone stays silent.
-    // If not, restores from the geo snapshot.
-    await _volumeController.clearGeoSilence();
-
-    state = const MasjidModeState();
-
-    // Reschedule prayer alarms (masjid deactivation doesn't change silence windows,
-    // so autoScheduleProvider won't re-run. We must manually reschedule.)
-    final settings = _getSettings();
-    if (settings.timeBasedSilenceEnabled) {
-      final windows = _getWindows();
-      if (windows.isNotEmpty) {
-        await _scheduler.scheduleAll(windows);
-      }
-    }
-
-    await _eventLog.log(EventType.masjidModeOff, 'Masjid mode deactivated');
-  }
-
-  /// Extend masjid mode by [additionalMinutes].
-  Future<void> extend({int additionalMinutes = 60}) async {
-    if (!state.isActive) return;
-
-    final newExpiry = (state.expiresAt ?? DateTime.now())
-        .add(Duration(minutes: additionalMinutes));
-
-    state = state.copyWith(expiresAt: newExpiry);
-
-    await _volumeController.scheduleRestoreAlarm(
-      triggerAtMs: newExpiry.millisecondsSinceEpoch,
-      requestCode: 3000,
-    );
-
-    await _eventLog.log(
-      EventType.masjidModeOn,
-      'Masjid mode extended by ${additionalMinutes}m',
-    );
-  }
-}
+// (Manual masjid mode removed - geofencing handles everything natively)
 
 // --- Permission Status ---
 
