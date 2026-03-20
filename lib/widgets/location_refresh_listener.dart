@@ -22,8 +22,11 @@ class _LocationRefreshListenerState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Refresh on first load
-    _refreshLocation();
+    // Defer refresh to after initState completes — can't access
+    // inherited widgets (ProviderScope) during initState
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshLocation();
+    });
   }
 
   @override
