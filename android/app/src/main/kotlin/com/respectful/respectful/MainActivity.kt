@@ -128,6 +128,13 @@ class MainActivity : FlutterActivity() {
                         }
                     )
                 }
+                "removeGeofencesOnly" -> {
+                    // Remove geofences but do NOT clear geo_silenced state
+                    // Used for re-registration, not for disabling
+                    GeofenceManager.removeAllGeofences(this,
+                        onComplete = { result.success(true) }
+                    )
+                }
                 "hasBackgroundLocationPermission" -> {
                     val granted = androidx.core.content.ContextCompat.checkSelfPermission(
                         this,

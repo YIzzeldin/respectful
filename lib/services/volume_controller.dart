@@ -93,9 +93,15 @@ class VolumeController {
         false;
   }
 
-  /// Remove all registered geofences.
+  /// Remove all registered geofences AND clear geo silence state.
+  /// Use when user explicitly disables geofencing or deletes all masjids.
   Future<void> removeAllGeofences() async {
     await _channel.invokeMethod('removeAllGeofences');
+  }
+
+  /// Remove geofences only (for re-registration). Does NOT clear geo_silenced.
+  Future<void> removeGeofencesOnly() async {
+    await _channel.invokeMethod('removeGeofencesOnly');
   }
 
   /// Check if background location permission is granted.
