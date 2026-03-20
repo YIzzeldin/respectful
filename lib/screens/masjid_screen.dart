@@ -476,22 +476,23 @@ class MasjidScreen extends ConsumerWidget {
     if (confirm == true) {
       await ref.read(savedMasjidsProvider.notifier).remove(masjid.id);
 
-      // After deleting, check if user is still near any remaining masjid.
-      // If not, clear silence. Read native state directly (not cached provider).
       final controller = ref.read(volumeControllerProvider);
-      final isGeoSilenced = await controller.isGeoSilenced();
+      final remaining = ref.read(savedMasjidsProvider);
 
-      if (isGeoSilenced) {
-        final remaining = ref.read(savedMasjidsProvider);
-        bool shouldClear = true;
-
-        if (remaining.isNotEmpty) {
+      if (remaining.isEmpty) {
+        // No masjids left — force clear everything, no ambiguity
+        await controller.forceRestoreNormal();
+        ref.invalidate(geoSilencedProvider);
+      } else {
+        // Still have masjids — check if near any remaining one
+        final isGeoSilenced = await controller.isGeoSilenced();
+        if (isGeoSilenced) {
           try {
             final position = await Geolocator.getCurrentPosition(
               locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
             );
             final locationService = ref.read(locationServiceProvider);
-            shouldClear = !remaining.any((m) =>
+            final stillInside = remaining.any((m) =>
               !locationService.hasMovedSignificantly(
                 storedLat: m.latitude,
                 storedLng: m.longitude,
@@ -500,14 +501,11 @@ class MasjidScreen extends ConsumerWidget {
                 thresholdKm: 0.2,
               ),
             );
-          } catch (_) {
-            shouldClear = remaining.isEmpty;
-          }
-        }
-
-        if (shouldClear) {
-          await controller.clearGeoSilence();
-          ref.invalidate(geoSilencedProvider);
+            if (!stillInside) {
+              await controller.clearGeoSilence();
+              ref.invalidate(geoSilencedProvider);
+            }
+          } catch (_) {}
         }
       }
     }
