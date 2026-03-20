@@ -290,7 +290,8 @@ final autoScheduleProvider = FutureProvider<void>((ref) async {
 });
 
 /// Imports native events into Flutter's event log. Triggered on app resume
-/// and on geoSilenced poll. Reads and clears the native log atomically.
+/// and on geoSilenced poll. Native side uses synchronized lock to prevent
+/// log() and readAndClear() from interleaving.
 final importNativeEventsProvider = FutureProvider<void>((ref) async {
   await _importNativeEvents(ref);
 });
