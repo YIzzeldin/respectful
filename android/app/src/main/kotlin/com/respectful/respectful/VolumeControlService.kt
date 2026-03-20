@@ -38,17 +38,19 @@ class VolumeControlService(private val context: Context) {
     fun applySilence(): Boolean {
         if (!hasDndPermission()) return false
 
-        audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
-
         // Check user's silence level preference
         val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", android.content.Context.MODE_PRIVATE)
         val silenceLevel = flutterPrefs.getString("flutter.silence_level", "totalSilence")
 
         if (silenceLevel == "prioritySilence") {
+            // Priority: vibrate mode + DND priority (allows alarms + starred contacts)
+            audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
             notificationManager.setInterruptionFilter(
                 NotificationManager.INTERRUPTION_FILTER_PRIORITY
             )
         } else {
+            // Total: silent mode + DND none (blocks everything)
+            audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
             notificationManager.setInterruptionFilter(
                 NotificationManager.INTERRUPTION_FILTER_NONE
             )

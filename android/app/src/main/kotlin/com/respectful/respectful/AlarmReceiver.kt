@@ -12,6 +12,9 @@ import android.util.Log
  *
  * Uses commit() instead of apply() for all critical state writes because
  * the process may be killed immediately after onReceive() returns.
+ *
+ * Prayer silence (is_silenced) and geo silence (geo_silenced) are tracked
+ * independently. The phone restores only when BOTH are inactive.
  */
 class AlarmReceiver : BroadcastReceiver() {
 
@@ -50,10 +53,12 @@ class AlarmReceiver : BroadcastReceiver() {
         prayerName: String,
         windowEndMs: Long
     ) {
-        // Don't overwrite snapshot if already in a silence session
         val isAlreadySilenced = prefs.getBoolean("is_silenced", false)
-        if (!isAlreadySilenced) {
-            // Capture current state
+        val isGeoSilenced = prefs.getBoolean("geo_silenced", false)
+
+        // Only capture snapshot if NOTHING is currently silencing the phone.
+        // If geo is active, the geo snapshot already has the pre-silence state.
+        if (!isAlreadySilenced && !isGeoSilenced) {
             val state = volumeService.captureCurrentState()
             prefs.edit()
                 .putInt("saved_ringer_mode", state["ringerMode"] as Int)
@@ -64,18 +69,17 @@ class AlarmReceiver : BroadcastReceiver() {
                 .putInt("saved_media_volume", state["mediaVolume"] as Int)
                 .putLong("saved_captured_at", state["capturedAt"] as Long)
                 .putString("saved_change_token", state["changeToken"] as String)
-                .commit() // commit() not apply() — process may die after onReceive
+                .commit()
         }
 
-        // Apply silence
         val success = volumeService.applySilence()
 
         if (!success) {
             Log.e(TAG, "Failed to silence for $prayerName — DND permission likely missing")
-            return // Don't record a session that never started
+            return
         }
 
-        // Update state — persist window_end_ms for boot recovery
+        // Mark prayer silence active — don't touch geo state
         prefs.edit()
             .putBoolean("is_silenced", true)
             .putBoolean("user_overridden", false)
@@ -84,7 +88,7 @@ class AlarmReceiver : BroadcastReceiver() {
             .putLong("window_end_ms", windowEndMs)
             .commit()
 
-        Log.d(TAG, "Silenced for $prayerName, windowEnd=${java.util.Date(windowEndMs)}")
+        Log.d(TAG, "Silenced for $prayerName (geo_active=$isGeoSilenced)")
     }
 
     private fun handleRestore(
@@ -97,18 +101,26 @@ class AlarmReceiver : BroadcastReceiver() {
         val userOverridden = prefs.getBoolean("user_overridden", false)
 
         if (!isSilenced && !isGeoSilenced) {
-            Log.d(TAG, "Restore called but not silenced (prayer=$isSilenced, geo=$isGeoSilenced), skipping")
+            Log.d(TAG, "Restore called but nothing silenced, skipping")
             return
         }
 
-        // If user manually overrode and this isn't a safety restore, skip
         if (userOverridden && !isSafetyRestore) {
-            Log.d(TAG, "User overridden, skipping restore (safety=$isSafetyRestore)")
-            clearSession(prefs)
+            Log.d(TAG, "User overridden, skipping restore")
+            // Clear only prayer state, leave geo state alone
+            clearPrayerSession(prefs)
             return
         }
 
-        // Use geo saved state if geo-silenced, otherwise prayer saved state
+        // If this is a prayer restore but geo is still active, just clear
+        // the prayer flag — phone stays silent because of the geofence.
+        if (isSilenced && isGeoSilenced) {
+            Log.d(TAG, "Prayer ended but geo still active — staying silent")
+            clearPrayerSession(prefs)
+            return
+        }
+
+        // Determine which saved state to restore from
         val savedState = if (isGeoSilenced) {
             mapOf(
                 "ringerMode" to prefs.getInt("geo_saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
@@ -128,25 +140,23 @@ class AlarmReceiver : BroadcastReceiver() {
         val success = volumeService.restoreState(savedState)
 
         if (success) {
-            clearSession(prefs)
-            Log.d(TAG, "Restored successfully, safety=$isSafetyRestore")
+            // Clear only the relevant session — not the other
+            if (isSilenced) clearPrayerSession(prefs)
+            if (isGeoSilenced) clearGeoSession(prefs)
+            Log.d(TAG, "Restored successfully (safety=$isSafetyRestore)")
         } else {
-            // Don't clear session — restore failed (e.g. DND permission revoked).
-            // Leave is_silenced=true so boot receiver / app-open check can retry.
-            Log.e(TAG, "Restore FAILED (safety=$isSafetyRestore) — session left active for retry")
+            Log.e(TAG, "Restore FAILED — session left active for retry")
         }
     }
 
-    /** Clear all session state (prayer + geo). Uses commit() for durability. */
-    private fun clearSession(prefs: SharedPreferences) {
+    /** Clear prayer session state only. */
+    private fun clearPrayerSession(prefs: SharedPreferences) {
         prefs.edit()
             .putBoolean("is_silenced", false)
-            .putBoolean("geo_silenced", false)
             .putBoolean("user_overridden", false)
             .remove("current_prayer")
             .remove("silenced_at")
             .remove("window_end_ms")
-            .remove("active_masjid_geofences")
             .remove("saved_ringer_mode")
             .remove("saved_interruption_filter")
             .remove("saved_ring_volume")
@@ -155,6 +165,14 @@ class AlarmReceiver : BroadcastReceiver() {
             .remove("saved_media_volume")
             .remove("saved_captured_at")
             .remove("saved_change_token")
+            .commit()
+    }
+
+    /** Clear geo session state only. */
+    private fun clearGeoSession(prefs: SharedPreferences) {
+        prefs.edit()
+            .putBoolean("geo_silenced", false)
+            .remove("active_masjid_geofences")
             .remove("geo_saved_ringer_mode")
             .remove("geo_saved_interruption_filter")
             .remove("geo_saved_ring_volume")
