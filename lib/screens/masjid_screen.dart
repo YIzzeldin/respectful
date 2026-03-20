@@ -514,23 +514,29 @@ class MasjidScreen extends ConsumerWidget {
       final controller = ref.read(volumeControllerProvider);
       final remaining = ref.read(savedMasjidsProvider);
 
-      // Always clear geo silence on delete — then re-evaluate
-      // The deleted masjid might be the one keeping geo_silenced=true
       final wasGeoSilenced = await controller.isGeoSilenced();
 
       if (remaining.isEmpty) {
         // No masjids left — force clear everything
         await controller.forceRestoreNormal();
       } else if (wasGeoSilenced) {
-        // Had geo silence — clear it first, then check if still near any remaining
-        await controller.clearGeoSilence();
-
+        // Check if we're near the DELETED masjid (meaning it was the
+        // one keeping us silenced) or near a remaining one
         if (!context.mounted) return;
-
-        // Now check if we should re-silence for a remaining masjid
         final position = await GpsRetryService.getPositionWithRetry(context: context);
         if (position != null) {
           final locationService = ref.read(locationServiceProvider);
+
+          // Check if near the deleted masjid
+          final wasNearDeleted = !locationService.hasMovedSignificantly(
+            storedLat: masjid.latitude,
+            storedLng: masjid.longitude,
+            currentLat: position.latitude,
+            currentLng: position.longitude,
+            thresholdKm: 0.2,
+          );
+
+          // Check if near any remaining masjid
           final nearRemaining = remaining.any((m) =>
             !locationService.hasMovedSignificantly(
               storedLat: m.latitude,
@@ -540,10 +546,13 @@ class MasjidScreen extends ConsumerWidget {
               thresholdKm: 0.2,
             ),
           );
-          if (nearRemaining) {
-            // Still near another masjid — re-silence
-            await controller.applySilenceForGeo();
+
+          if (wasNearDeleted && !nearRemaining) {
+            // Was at the deleted masjid, not near any other — clear
+            await controller.clearGeoSilence();
           }
+          // If near remaining — do nothing, stay silenced
+          // If was NOT near deleted — do nothing, silence is from another source
         }
       }
 
