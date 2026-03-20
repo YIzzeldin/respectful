@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/app_providers.dart';
 
 /// OEM-specific troubleshooting guidance for background service reliability.
@@ -10,22 +11,23 @@ class TroubleshootingScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final dndPerm = ref.watch(dndPermissionProvider);
     final alarmPerm = ref.watch(exactAlarmPermissionProvider);
     final manufacturer = _getManufacturer();
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Troubleshooting')),
+      appBar: AppBar(title: Text(l.troubleshooting)),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         children: [
           // Permission status
-          _SectionTitle('Permission Status'),
+          _SectionTitle(l.permissionStatus),
           const SizedBox(height: 8),
           _PermissionTile(
             icon: Icons.do_not_disturb_on,
-            title: 'DND Access',
+            title: l.dndAccessShort,
             granted: dndPerm.valueOrNull ?? false,
             onFix: () async {
               final controller = ref.read(volumeControllerProvider);
@@ -35,7 +37,7 @@ class TroubleshootingScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           _PermissionTile(
             icon: Icons.alarm,
-            title: 'Exact Alarms',
+            title: l.exactAlarms,
             granted: alarmPerm.valueOrNull ?? false,
             onFix: () async {
               final controller = ref.read(volumeControllerProvider);
@@ -45,7 +47,7 @@ class TroubleshootingScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // Battery optimization
-          _SectionTitle('Battery Optimization'),
+          _SectionTitle(l.batteryOptimization),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(16),
@@ -56,9 +58,9 @@ class TroubleshootingScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'For reliable auto-silence, disable battery optimization for Respectful.',
-                  style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                Text(
+                  l.batteryDesc,
+                  style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
@@ -75,7 +77,7 @@ class TroubleshootingScreen extends ConsumerWidget {
                       }
                     },
                     icon: const Icon(Icons.battery_saver, size: 18),
-                    label: const Text('Open Battery Settings'),
+                    label: Text(l.openBatterySettings),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
@@ -91,13 +93,13 @@ class TroubleshootingScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // OEM-specific guidance
-          _SectionTitle('Device-Specific Guide'),
+          _SectionTitle(l.deviceGuide),
           const SizedBox(height: 8),
           _OemGuide(manufacturer: manufacturer),
           const SizedBox(height: 24),
 
           // Common issues
-          _SectionTitle('Common Issues'),
+          _SectionTitle(l.commonIssues),
           const SizedBox(height: 8),
           _FaqTile(
             question: 'Phone doesn\'t silence at the masjid',
@@ -182,9 +184,9 @@ class _PermissionTile extends StatelessWidget {
             ),
           ),
           if (granted)
-            const Text('Granted', style: TextStyle(fontSize: 13, color: AppColors.success, fontWeight: FontWeight.w500))
+            Text(AppLocalizations.of(context).granted, style: const TextStyle(fontSize: 13, color: AppColors.success, fontWeight: FontWeight.w500))
           else
-            TextButton(onPressed: onFix, child: const Text('Fix')),
+            TextButton(onPressed: onFix, child: Text(AppLocalizations.of(context).fix)),
         ],
       ),
     );
@@ -206,10 +208,9 @@ class _OemGuide extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Some phone manufacturers aggressively kill background apps. '
-            'Follow the steps for your device brand:',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          Text(
+            AppLocalizations.of(context).deviceGuideDesc,
+            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
           _OemStep(brand: 'Samsung', steps: 'Settings > Apps > Respectful > Battery > Unrestricted'),

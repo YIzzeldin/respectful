@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/app_providers.dart';
 import '../services/event_log_service.dart';
 
@@ -10,6 +11,7 @@ class ActivityScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final eventLog = ref.watch(eventLogServiceProvider);
     final entries = eventLog.getRecentEntries(days: 7);
 
@@ -38,7 +40,7 @@ class ActivityScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Activity', style: Theme.of(context).textTheme.headlineMedium),
+                Text(l.activity, style: Theme.of(context).textTheme.headlineMedium),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -46,9 +48,9 @@ class ActivityScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppColors.surfaceVariant),
                   ),
-                  child: const Text(
-                    'Last 7 days',
-                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  child: Text(
+                    l.last7Days,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ),
               ],
@@ -58,11 +60,11 @@ class ActivityScreen extends ConsumerWidget {
             // Stats row
             Row(
               children: [
-                _StatCard(value: '$silenced', label: 'Silenced', color: AppColors.primary),
+                _StatCard(value: '$silenced', label: l.silenced, color: AppColors.primary),
                 const SizedBox(width: 12),
-                _StatCard(value: '$overrides', label: 'Overrides', color: AppColors.warning),
+                _StatCard(value: '$overrides', label: l.overrides, color: AppColors.warning),
                 const SizedBox(width: 12),
-                _StatCard(value: '$restoreRate%', label: 'Restored', color: AppColors.info),
+                _StatCard(value: '$restoreRate%', label: l.restored, color: AppColors.info),
               ],
             ),
             const SizedBox(height: 24),
@@ -79,15 +81,15 @@ class ActivityScreen extends ConsumerWidget {
                   children: [
                     Icon(Icons.history, size: 48, color: AppColors.textTertiary),
                     const SizedBox(height: 12),
-                    const Text(
-                      'No activity yet',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    Text(
+                      l.noActivityYet,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Events will appear here when your phone is silenced at a masjid or during prayer.',
+                    Text(
+                      l.noActivityDesc,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: AppColors.textTertiary),
+                      style: const TextStyle(fontSize: 13, color: AppColors.textTertiary),
                     ),
                   ],
                 ),
@@ -96,7 +98,7 @@ class ActivityScreen extends ConsumerWidget {
               ...grouped.entries.map((dayGroup) {
                 final date = DateTime.parse(dayGroup.key);
                 final isToday = DateFormat('yyyy-MM-dd').format(DateTime.now()) == dayGroup.key;
-                final label = isToday ? 'Today' : DateFormat('EEEE').format(date);
+                final label = isToday ? l.today : DateFormat('EEEE').format(date);
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

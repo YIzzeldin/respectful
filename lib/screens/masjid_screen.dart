@@ -4,6 +4,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 import '../core/theme.dart';
+import '../l10n/app_localizations.dart';
 import '../models/saved_masjid.dart';
 import '../providers/app_providers.dart';
 import '../services/event_log_service.dart';
@@ -15,17 +16,18 @@ class MasjidScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final masjids = ref.watch(savedMasjidsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('My Masjids'),
+        title: Text(l.myMasjids),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_location_alt_rounded),
             onPressed: () => _addCurrentLocation(context, ref),
-            tooltip: 'Save current location',
+            tooltip: l.saveCurrentLocation,
           ),
           IconButton(
             icon: const Icon(Icons.map_rounded),
@@ -35,7 +37,7 @@ class MasjidScreen extends ConsumerWidget {
                 MaterialPageRoute(builder: (_) => const MapPickerScreen()),
               );
             },
-            tooltip: 'Add from map',
+            tooltip: l.addFromMap,
           ),
         ],
       ),
@@ -46,6 +48,7 @@ class MasjidScreen extends ConsumerWidget {
   }
 
   Widget _buildEmpty(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -54,21 +57,21 @@ class MasjidScreen extends ConsumerWidget {
           children: [
             Icon(Icons.mosque_rounded, size: 64, color: AppColors.primary.withValues(alpha: 0.3)),
             const SizedBox(height: 16),
-            const Text(
-              'No masjids saved',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            Text(
+              l.noMasjidsSaved,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'When you\'re at a masjid, tap the button below to save its location for quick access.',
+            Text(
+              l.noMasjidsDesc,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () => _addCurrentLocation(context, ref),
               icon: const Icon(Icons.my_location),
-              label: const Text('Save Current Location'),
+              label: Text(l.saveCurrentLocation),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
@@ -79,7 +82,7 @@ class MasjidScreen extends ConsumerWidget {
                 );
               },
               icon: const Icon(Icons.map_rounded),
-              label: const Text('Pick from Map'),
+              label: Text(l.pickFromMap),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: AppColors.primary),
               ),
@@ -115,10 +118,10 @@ class MasjidScreen extends ConsumerWidget {
                   children: [
                     const Icon(Icons.location_on, color: AppColors.warning, size: 20),
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Grant "Allow all the time" location for auto-detection when you enter a masjid.',
-                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                        AppLocalizations.of(context).grantBgLocation,
+                        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                       ),
                     ),
                     TextButton(
@@ -127,7 +130,7 @@ class MasjidScreen extends ConsumerWidget {
                         // Trigger rebuild
                         ref.invalidate(autoGeofenceProvider);
                       },
-                      child: const Text('Grant', style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(AppLocalizations.of(context).grant, style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -143,7 +146,7 @@ class MasjidScreen extends ConsumerWidget {
             child: OutlinedButton.icon(
               onPressed: () => _addCurrentLocation(context, ref),
               icon: const Icon(Icons.add_location_alt, size: 18),
-              label: const Text('Save Current Location'),
+              label: Text(AppLocalizations.of(context).saveCurrentLocation),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -224,7 +227,7 @@ class MasjidScreen extends ConsumerWidget {
       if (!serviceEnabled) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please enable location services')),
+            SnackBar(content: Text(AppLocalizations.of(context).pleaseEnableLocation)),
           );
         }
         return;
@@ -260,7 +263,7 @@ class MasjidScreen extends ConsumerWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Already saved: "${nearbyMasjid.name}" is nearby'),
+              content: Text(AppLocalizations.of(context).alreadySavedNearby(nearbyMasjid.name)),
               backgroundColor: AppColors.warning,
             ),
           );
@@ -331,7 +334,7 @@ class MasjidScreen extends ConsumerWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Saved "$name" — phone silenced'),
+                content: Text(AppLocalizations.of(context).phoneSilencedSaved(name)),
                 backgroundColor: AppColors.primary,
               ),
             );
@@ -344,7 +347,7 @@ class MasjidScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Saved "$name"'),
+            content: Text(AppLocalizations.of(context).saved(name)),
             backgroundColor: AppColors.primary,
           ),
         );
@@ -352,13 +355,14 @@ class MasjidScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to get location: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context).failedToGetLocation('$e'))),
         );
       }
     }
   }
 
   Future<String?> _askMasjidName(BuildContext context, [String? defaultName]) async {
+    final l = AppLocalizations.of(context);
     final controller = TextEditingController(text: defaultName);
     if (defaultName != null) {
       controller.selection = TextSelection(baseOffset: 0, extentOffset: defaultName.length);
@@ -366,14 +370,14 @@ class MasjidScreen extends ConsumerWidget {
     return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Name this masjid'),
+        title: Text(l.nameThisMasjid),
         content: TextField(
           controller: controller,
           autofocus: true,
           decoration: InputDecoration(
             hintText: 'e.g. Masjid Al-Noor',
             border: const OutlineInputBorder(),
-            helperText: defaultName != null ? 'Auto-detected from location' : null,
+            helperText: defaultName != null ? l.autoDetectedFromLocation : null,
           ),
           textCapitalization: TextCapitalization.words,
           onSubmitted: (value) => Navigator.pop(context, value),
@@ -381,11 +385,11 @@ class MasjidScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l.cancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Save'),
+            child: Text(l.save),
           ),
         ],
       ),
@@ -420,7 +424,7 @@ class MasjidScreen extends ConsumerWidget {
                 Icon(Icons.radar, size: 14, color: AppColors.primary),
                 const SizedBox(width: 6),
                 Text(
-                  '200m geofence active',
+                  AppLocalizations.of(context).geofenceActive,
                   style: TextStyle(fontSize: 12, color: AppColors.primary),
                 ),
               ],
@@ -428,7 +432,7 @@ class MasjidScreen extends ConsumerWidget {
             const SizedBox(height: 20),
             ListTile(
               leading: const Icon(Icons.edit_rounded),
-              title: const Text('Rename'),
+              title: Text(AppLocalizations.of(context).rename),
               contentPadding: EdgeInsets.zero,
               onTap: () {
                 Navigator.pop(context);
@@ -437,7 +441,7 @@ class MasjidScreen extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.delete_rounded, color: AppColors.error),
-              title: const Text('Delete', style: TextStyle(color: AppColors.error)),
+              title: Text(AppLocalizations.of(context).delete, style: const TextStyle(color: AppColors.error)),
               contentPadding: EdgeInsets.zero,
               onTap: () {
                 Navigator.pop(context);
@@ -478,8 +482,8 @@ class MasjidScreen extends ConsumerWidget {
       // All retries exhausted — clear to avoid stuck state
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('GPS failed — clearing silence to avoid stuck state'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).gpsFailed),
             backgroundColor: AppColors.warning,
           ),
         );
@@ -490,11 +494,12 @@ class MasjidScreen extends ConsumerWidget {
   }
 
   void _renameMasjid(BuildContext context, WidgetRef ref, SavedMasjid masjid) async {
+    final l = AppLocalizations.of(context);
     final controller = TextEditingController(text: masjid.name);
     final newName = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Rename masjid'),
+        title: Text(l.renameMasjid),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -505,11 +510,11 @@ class MasjidScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l.cancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Save'),
+            child: Text(l.save),
           ),
         ],
       ),
@@ -520,20 +525,21 @@ class MasjidScreen extends ConsumerWidget {
   }
 
   void _deleteMasjid(BuildContext context, WidgetRef ref, SavedMasjid masjid) async {
+    final l = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete masjid?'),
-        content: Text('Remove "${masjid.name}" from your saved locations?'),
+        title: Text(l.deleteMasjid),
+        content: Text(l.deleteMasjidConfirm(masjid.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: Text(l.delete),
           ),
         ],
       ),

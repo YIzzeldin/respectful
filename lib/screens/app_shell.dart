@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
+import '../l10n/app_localizations.dart';
 import 'activity_screen.dart';
 import 'home_screen.dart';
 import 'settings_screen.dart';
@@ -36,28 +37,33 @@ class _AppShellState extends State<AppShell> {
             borderRadius: BorderRadius.circular(32),
             border: Border.all(color: AppColors.surfaceVariant, width: 1),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _NavItem(
-                icon: Icons.home_rounded,
-                label: 'HOME',
-                isActive: _currentIndex == 0,
-                onTap: () => setState(() => _currentIndex = 0),
-              ),
-              _NavItem(
-                icon: Icons.bar_chart_rounded,
-                label: 'ACTIVITY',
-                isActive: _currentIndex == 1,
-                onTap: () => setState(() => _currentIndex = 1),
-              ),
-              _NavItem(
-                icon: Icons.settings_rounded,
-                label: 'SETTINGS',
-                isActive: _currentIndex == 2,
-                onTap: () => setState(() => _currentIndex = 2),
-              ),
-            ],
+          child: Builder(
+            builder: (context) {
+              final l = AppLocalizations.of(context);
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _NavItem(
+                    icon: Icons.home_rounded,
+                    label: l.home,
+                    isActive: _currentIndex == 0,
+                    onTap: () => setState(() => _currentIndex = 0),
+                  ),
+                  _NavItem(
+                    icon: Icons.bar_chart_rounded,
+                    label: l.activityTab,
+                    isActive: _currentIndex == 1,
+                    onTap: () => setState(() => _currentIndex = 1),
+                  ),
+                  _NavItem(
+                    icon: Icons.settings_rounded,
+                    label: l.settingsTab,
+                    isActive: _currentIndex == 2,
+                    onTap: () => setState(() => _currentIndex = 2),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),

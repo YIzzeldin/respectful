@@ -214,6 +214,106 @@ class AppLocalizations {
   String get min => isArabic ? 'د' : 'min';
   String get fixed => isArabic ? 'ثابت' : 'fixed';
   String get grant => isArabic ? 'منح' : 'Grant';
+
+  // --- Bottom Nav ---
+  String get home => isArabic ? 'الرئيسية' : 'HOME';
+  String get activityTab => isArabic ? 'النشاط' : 'ACTIVITY';
+  String get settingsTab => isArabic ? 'الإعدادات' : 'SETTINGS';
+
+  // --- Timing Editor ---
+  String get autoSilenceForPrayer => isArabic
+      ? 'كتم تلقائي لهذه الصلاة'
+      : 'Auto-silence for this prayer';
+  String get resetToDefaults => isArabic
+      ? 'إعادة للافتراضي'
+      : 'Reset to defaults';
+  String totalTime(int mins) => isArabic ? 'المجموع: ${mins}د' : 'Total: ${mins}m';
+
+  // --- Troubleshooting ---
+  String get permissionStatus => isArabic ? 'حالة الصلاحيات' : 'Permission Status';
+  String get dndAccessShort => isArabic ? 'صلاحية عدم الإزعاج' : 'DND Access';
+  String get exactAlarms => isArabic ? 'المنبهات الدقيقة' : 'Exact Alarms';
+  String get granted => isArabic ? 'ممنوحة' : 'Granted';
+  String get fix => isArabic ? 'إصلاح' : 'Fix';
+  String get batteryOptimization => isArabic ? 'تحسين البطارية' : 'Battery Optimization';
+  String get batteryDesc => isArabic
+      ? 'لكتم موثوق، عطّل تحسين البطارية لتطبيق محترم.'
+      : 'For reliable auto-silence, disable battery optimization for Respectful.';
+  String get openBatterySettings => isArabic ? 'فتح إعدادات البطارية' : 'Open Battery Settings';
+  String get deviceGuide => isArabic ? 'دليل الجهاز' : 'Device-Specific Guide';
+  String get deviceGuideDesc => isArabic
+      ? 'بعض الأجهزة تقتل التطبيقات في الخلفية. اتبع الخطوات لجهازك:'
+      : 'Some phone manufacturers aggressively kill background apps. Follow the steps for your device brand:';
+  String get commonIssues => isArabic ? 'مشاكل شائعة' : 'Common Issues';
+  String phoneSilencedSaved(String name) => isArabic
+      ? 'تم حفظ "$name" — الهاتف مكتوم'
+      : 'Saved "$name" — phone silenced';
+  String saved(String name) => isArabic ? 'تم حفظ "$name"' : 'Saved "$name"';
+  String get locationUpdated => isArabic
+      ? 'تم تحديث الموقع — أوقات الصلاة أُعيد حسابها'
+      : 'Location updated — prayer times recalculated';
+  String get updating => isArabic ? 'جاري التحديث...' : 'Updating...';
+  String get tapOnMap => isArabic
+      ? 'اضغط على الخريطة لوضع مسجد'
+      : 'Tap on the map to place a masjid';
+  String get locationSelected => isArabic ? 'تم تحديد الموقع' : 'Location selected';
+  String get saveThisLocation => isArabic ? 'حفظ هذا الموقع' : 'Save This Location';
+  String get saving => isArabic ? 'جاري الحفظ...' : 'Saving...';
+  String get autoDetectedFromLocation => isArabic
+      ? 'تم الكشف تلقائياً من الموقع'
+      : 'Auto-detected from location';
+  String get renameMasjid => isArabic ? 'إعادة تسمية المسجد' : 'Rename masjid';
+  String get next => isArabic ? 'التالي' : 'NEXT';
+  String get alreadyHaveSettings => isArabic
+      ? 'لديك إعدادات بالفعل؟ استعادة'
+      : 'Already have settings? Restore';
+  String get chooseCalcMethod => isArabic
+      ? 'اختر طريقة حساب أوقات الصلاة المستخدمة في منطقتك.'
+      : 'Choose the prayer time calculation method used in your region.';
+  String get totalSilenceWarning => isArabic
+      ? 'الكتم الكامل يمنع كل الأصوات بما فيها المكالمات والمنبهات أثناء التواجد في المسجد أو وقت الصلاة.'
+      : 'Total silence mode blocks ALL sounds including calls and alarms while at a masjid or during prayer.';
+  String get pleaseEnableLocation => isArabic
+      ? 'يرجى تفعيل خدمات الموقع'
+      : 'Please enable location services';
+  String get locationPermDenied => isArabic
+      ? 'تم رفض صلاحية الموقع'
+      : 'Location permission denied';
+  String get locationPermPermanentlyDenied => isArabic
+      ? 'صلاحية الموقع مرفوضة نهائياً. يرجى التفعيل من الإعدادات.'
+      : 'Location permission permanently denied. Please enable in settings.';
+  String failedToGetLocation(String error) => isArabic
+      ? 'فشل الحصول على الموقع: $error'
+      : 'Failed to get location: $error';
+  String get locationNeeded => isArabic ? 'الموقع مطلوب' : 'Location needed';
+  String get locationNeededDesc => isArabic
+      ? 'يرجى إكمال الإعداد لتحديد موقعك لأوقات صلاة دقيقة.'
+      : 'Please complete onboarding to set your location for accurate prayer times.';
+  String get grantBgLocation => isArabic
+      ? 'امنح صلاحية "السماح دائماً" للموقع للكشف التلقائي عند دخول المسجد.'
+      : 'Grant "Allow all the time" location for auto-detection when you enter a masjid.';
+  String gpsRetrying(int attempt, int max) => isArabic
+      ? 'نظام تحديد المواقع غير متاح — إعادة المحاولة خلال 30 ثانية (محاولة $attempt/$max)'
+      : 'GPS unavailable — retrying in 30s (attempt $attempt/$max)';
+  String get gpsFailed => isArabic
+      ? 'فشل نظام تحديد المواقع — إلغاء الكتم لتجنب التعليق'
+      : 'GPS failed — clearing silence to avoid stuck state';
+  String get masterOffRestored => isArabic
+      ? 'زر الإيقاف الرئيسي — تم استعادة الهاتف للوضع العادي'
+      : 'Master toggle OFF — phone restored to normal';
+
+  // --- Prayer name helper ---
+  String prayerName(String name) {
+    switch (name) {
+      case 'Fajr': return fajr;
+      case 'Dhuhr': return dhuhr;
+      case 'Asr': return asr;
+      case 'Maghrib': return maghrib;
+      case 'Isha': return isha;
+      case "Jumu'ah": return jumuah;
+      default: return name;
+    }
+  }
 }
 
 class _AppLocalizationsDelegate

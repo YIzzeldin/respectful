@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
+import '../l10n/app_localizations.dart';
 import '../models/app_settings.dart';
 import '../models/prayer_day.dart';
 import '../services/event_log_service.dart';
@@ -40,6 +41,7 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Widget _buildNoLocation(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -49,12 +51,12 @@ class HomeScreen extends ConsumerWidget {
             Icon(Icons.location_off, size: 64, color: AppColors.textTertiary),
             const SizedBox(height: 16),
             Text(
-              'Location needed',
+              l.locationNeeded,
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'Please complete onboarding to set your location for accurate prayer times.',
+              l.locationNeededDesc,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
@@ -72,11 +74,11 @@ class HomeScreen extends ConsumerWidget {
     bool isSilenced,
     AppSettings settings,
   ) {
+    final l = AppLocalizations.of(context);
     final timeBasedSilenceEnabled = settings.timeBasedSilenceEnabled;
     final geofenceEnabled = settings.geofenceSilenceEnabled;
     final allDisabled = !timeBasedSilenceEnabled && !geofenceEnabled;
     final now = DateTime.now();
-    final greeting = _getGreeting(now);
 
     final isGeoSilenced = ref.watch(geoSilencedProvider).valueOrNull ?? false;
 
@@ -97,7 +99,7 @@ class HomeScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  greeting,
+                  l.greeting,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -152,7 +154,7 @@ class HomeScreen extends ConsumerWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          allDisabled ? 'OFF' : 'ON',
+                          allDisabled ? l.off : l.on,
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
@@ -170,13 +172,13 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     _ModeChip(
                       icon: Icons.mosque_rounded,
-                      label: 'Masjid',
+                      label: l.masjid,
                       enabled: geofenceEnabled,
                     ),
                     const SizedBox(width: 4),
                     _ModeChip(
                       icon: Icons.schedule_rounded,
-                      label: 'Time',
+                      label: l.time,
                       enabled: timeBasedSilenceEnabled,
                     ),
                   ],
@@ -215,17 +217,17 @@ class HomeScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'You are at a masjid',
-                        style: TextStyle(
+                      Text(
+                        l.youAreAtMasjid,
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
                       ),
-                      const Text(
-                        'Phone silenced — auto-detected',
-                        style: TextStyle(
+                      Text(
+                        l.phoneSilencedAutoDetected,
+                        style: const TextStyle(
                           fontSize: 12,
                           color: Colors.white70,
                         ),
@@ -258,7 +260,7 @@ class HomeScreen extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              "Today's Prayers",
+              l.todaysPrayers,
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: primaryTextColor),
             ),
           ],
@@ -377,16 +379,10 @@ class HomeScreen extends ConsumerWidget {
 
     await eventLog.log(
       EventType.restored,
-      'Master toggle OFF — phone restored to normal',
+      'Master toggle OFF — phone restored to normal', // Event log always in English
     );
   }
 
-  String _getGreeting(DateTime now) {
-    if (now.hour < 5) return 'Assalamu Alaikum';
-    if (now.hour < 12) return 'Assalamu Alaikum';
-    if (now.hour < 17) return 'Assalamu Alaikum';
-    return 'Assalamu Alaikum';
-  }
 }
 
 class _MasjidModeCard extends ConsumerWidget {
@@ -394,6 +390,7 @@ class _MasjidModeCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final savedMasjids = ref.watch(savedMasjidsProvider);
 
     return Container(
@@ -435,7 +432,7 @@ class _MasjidModeCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'My Masjids',
+                        l.myMasjids,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -444,8 +441,8 @@ class _MasjidModeCard extends ConsumerWidget {
                       ),
                       Text(
                         savedMasjids.isEmpty
-                            ? 'Tap to add a masjid location'
-                            : '${savedMasjids.length} saved • auto-silence on entry',
+                            ? l.tapToAddMasjid
+                            : l.savedMasjidsCount(savedMasjids.length),
                         style: const TextStyle(
                           fontSize: 13,
                           color: AppColors.textTertiary,

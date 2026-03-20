@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
+import '../l10n/app_localizations.dart';
 import '../models/prayer_day.dart';
 
 class PrayerCard extends StatelessWidget {
@@ -25,6 +26,7 @@ class PrayerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -47,7 +49,7 @@ class PrayerCard extends StatelessWidget {
           ),
           const SizedBox(width: 14),
           Text(
-            prayer.displayName,
+            l.prayerName(prayer.displayName),
             style: TextStyle(
               fontSize: 16,
               fontWeight: isNext ? FontWeight.w600 : FontWeight.w400,
@@ -71,8 +73,8 @@ class PrayerCard extends StatelessWidget {
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Text(
-                'NEXT',
+              child: Text(
+                l.next,
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
