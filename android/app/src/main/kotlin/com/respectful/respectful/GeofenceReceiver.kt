@@ -54,10 +54,31 @@ class GeofenceReceiver : BroadcastReceiver() {
         volumeService: VolumeControlService,
         masjidIds: List<String>,
     ) {
+        // Only process masjid IDs that actually exist in the saved list.
+        // Geofence re-registration can fire INITIAL_TRIGGER_ENTER with stale
+        // IDs from deleted masjids — ignore those.
+        val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val savedJson = flutterPrefs.getString("flutter.saved_masjids", "[]") ?: "[]"
+        val savedIds = mutableSetOf<String>()
+        try {
+            val array = org.json.JSONArray(savedJson)
+            for (i in 0 until array.length()) {
+                savedIds.add(array.getJSONObject(i).getString("id"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse saved masjids: ${e.message}")
+        }
+
+        val validIds = masjidIds.filter { it in savedIds }
+        if (validIds.isEmpty()) {
+            Log.d(TAG, "Ignoring geofence enter for deleted masjid IDs: $masjidIds")
+            return
+        }
+
         // Track which masjids we're inside
         val activeMasjids = prefs.getStringSet("active_masjid_geofences", mutableSetOf())?.toMutableSet()
             ?: mutableSetOf()
-        activeMasjids.addAll(masjidIds)
+        activeMasjids.addAll(validIds)
 
         val isAlreadySilencedByGeo = prefs.getBoolean("geo_silenced", false)
 
