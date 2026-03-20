@@ -228,6 +228,10 @@ class MainActivity : FlutterActivity() {
                         result.success(false)
                     }
                 }
+                "readNativeEvents" -> {
+                    val events = NativeEventLog.readAndClear(this)
+                    result.success(events)
+                }
                 "isGeoSilenced" -> {
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
                     result.success(prefs.getBoolean("geo_silenced", false))

@@ -120,6 +120,11 @@ class VolumeController {
     return await _channel.invokeMethod<bool>('forceRestoreNormal') ?? false;
   }
 
+  /// Read and clear native event log (events logged by GeofenceReceiver etc.)
+  Future<String> readNativeEvents() async {
+    return await _channel.invokeMethod<String>('readNativeEvents') ?? '[]';
+  }
+
   /// Check if phone is currently silenced by a geofence (native side).
   Future<bool> isGeoSilenced() async {
     return await _channel.invokeMethod<bool>('isGeoSilenced') ?? false;

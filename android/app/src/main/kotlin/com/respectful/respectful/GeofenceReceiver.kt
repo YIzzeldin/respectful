@@ -86,6 +86,7 @@ class GeofenceReceiver : BroadcastReceiver() {
             .commit()
 
         Log.d(TAG, "Entered masjid(s): $masjidIds, active set: $activeMasjids")
+        NativeEventLog.log(context, "geofenceEnter", "Entered masjid — phone silenced")
     }
 
     private fun handleExitMasjid(
@@ -121,8 +122,10 @@ class GeofenceReceiver : BroadcastReceiver() {
                 )
                 volumeService.restoreState(savedState)
                 Log.d(TAG, "Exited all masjids — restored phone state")
+                NativeEventLog.log(context, "geofenceExit", "Left masjid — phone restored")
             } else {
                 Log.d(TAG, "Exited all masjids but prayer silence active — keeping silent")
+                NativeEventLog.log(context, "geofenceExit", "Left masjid — prayer still active")
             }
 
             // Clean up geo state
