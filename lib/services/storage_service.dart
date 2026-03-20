@@ -12,6 +12,7 @@ class StorageService {
   static const _keySilenceLevel = 'silence_level';
   static const _keyUsePerPrayerConfig = 'use_per_prayer_config';
   static const _keyOnboardingComplete = 'onboarding_complete';
+  static const _keyGpsCalibrationMinutes = 'gps_calibration_minutes';
   static const _keyLanguageCode = 'language_code';
   static const _keyLatitude = 'latitude';
   static const _keyLongitude = 'longitude';
@@ -41,6 +42,7 @@ class StorageService {
           : TimingPreferences.defaults(),
       timeBasedSilenceEnabled: _prefs.getBool(_keyAutoSilentEnabled) ?? false,
       geofenceSilenceEnabled: _prefs.getBool(_keyGeofenceSilenceEnabled) ?? true,
+      gpsCalibrationMinutes: _prefs.getInt(_keyGpsCalibrationMinutes) ?? 5,
       silenceLevel: _enumByName(
         SilenceLevel.values,
         silenceLevelName,
@@ -62,6 +64,7 @@ class StorageService {
         _keyTimingPreferences, jsonEncode(settings.timingPreferences.toJson()));
     await _prefs.setBool(_keyAutoSilentEnabled, settings.timeBasedSilenceEnabled);
     await _prefs.setBool(_keyGeofenceSilenceEnabled, settings.geofenceSilenceEnabled);
+    await _prefs.setInt(_keyGpsCalibrationMinutes, settings.gpsCalibrationMinutes);
     await _prefs.setString(_keySilenceLevel, settings.silenceLevel.name);
     await _prefs.setBool(_keyUsePerPrayerConfig, settings.usePerPrayerConfig);
     await _prefs.setBool(_keyOnboardingComplete, settings.onboardingComplete);

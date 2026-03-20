@@ -112,6 +112,18 @@ class AppLocalizations {
   String get updateLocationNow => isArabic
       ? 'تحديث الموقع الآن'
       : 'Update Location Now';
+  String get gpsCalibration => isArabic
+      ? 'معايرة نظام تحديد المواقع'
+      : 'GPS Calibration';
+  String get gpsCalibrationDesc => isArabic
+      ? 'فحص دوري بنظام تحديد المواقع للتأكد من حالة الإصمات (يستهلك البطارية)'
+      : 'Periodic GPS check to verify silence state (uses battery)';
+  String gpsCalibrationInterval(int mins) => isArabic
+      ? 'كل $mins دقيقة'
+      : 'Every $mins minutes';
+  String get checkingLocation => isArabic
+      ? 'جاري التحقق من الموقع...'
+      : 'Checking location...';
   String get troubleshooting => isArabic ? 'استكشاف الأخطاء' : 'Troubleshooting';
   String get language => isArabic ? 'اللغة' : 'Language';
   String get arabic => isArabic ? 'العربية' : 'Arabic';

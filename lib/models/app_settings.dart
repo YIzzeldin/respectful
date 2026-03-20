@@ -86,6 +86,9 @@ class AppSettings {
   /// Geofence-based auto-silence (silence at saved masjids). ON by default — main use case.
   final bool geofenceSilenceEnabled;
 
+  /// GPS calibration interval in minutes (5-30). Only active when geofencing is enabled.
+  final int gpsCalibrationMinutes;
+
   final SilenceLevel silenceLevel;
   final bool usePerPrayerConfig;
   final bool onboardingComplete;
@@ -98,6 +101,7 @@ class AppSettings {
     required this.timingPreferences,
     this.timeBasedSilenceEnabled = false,
     this.geofenceSilenceEnabled = true,
+    this.gpsCalibrationMinutes = 5,
     this.silenceLevel = SilenceLevel.totalSilence,
     this.usePerPrayerConfig = false,
     this.onboardingComplete = false,
@@ -117,6 +121,7 @@ class AppSettings {
     TimingPreferences? timingPreferences,
     bool? timeBasedSilenceEnabled,
     bool? geofenceSilenceEnabled,
+    int? gpsCalibrationMinutes,
     SilenceLevel? silenceLevel,
     bool? usePerPrayerConfig,
     bool? onboardingComplete,
@@ -129,6 +134,7 @@ class AppSettings {
         timingPreferences: timingPreferences ?? this.timingPreferences,
         timeBasedSilenceEnabled: timeBasedSilenceEnabled ?? this.timeBasedSilenceEnabled,
         geofenceSilenceEnabled: geofenceSilenceEnabled ?? this.geofenceSilenceEnabled,
+        gpsCalibrationMinutes: gpsCalibrationMinutes ?? this.gpsCalibrationMinutes,
         silenceLevel: silenceLevel ?? this.silenceLevel,
         usePerPrayerConfig: usePerPrayerConfig ?? this.usePerPrayerConfig,
         onboardingComplete: onboardingComplete ?? this.onboardingComplete,

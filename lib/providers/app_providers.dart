@@ -326,19 +326,69 @@ Future<void> _importNativeEvents(Ref ref) async {
   } catch (_) {}
 }
 
-// --- Geofence State (reads native geo_silenced flag) ---
-// Polls every 30 seconds for UI state. Logging is done natively
-// by GeofenceReceiver — not here (avoids synthetic timestamps).
+// --- Geofence State ---
+// Mode 1: Normal poll (10s) — reads native geo_silenced flag for UI. No GPS.
+// Mode 2: GPS calibration (configurable, default 5min) — one-directional:
+//         CAN silence if GPS says near masjid but native missed it.
+//         CANNOT unsilence — trusts native geofence for exits.
+//         Only active when geofencing is enabled.
 
 final geoSilencedProvider = FutureProvider<bool>((ref) async {
-  ref.watch(currentMinuteProvider); // refresh every 30s
+  ref.watch(currentMinuteProvider); // refresh every 10s
   final controller = ref.read(volumeControllerProvider);
 
-  // Import any native events that happened while Flutter was dead
   ref.watch(importNativeEventsProvider);
 
   return controller.isGeoSilenced();
 });
+
+// GPS calibration — runs at user-configured interval, silence-only
+final _gpsCalibrationTickProvider = StreamProvider<DateTime>((ref) {
+  final settings = ref.watch(settingsProvider);
+  final minutes = settings.gpsCalibrationMinutes.clamp(1, 30);
+  return Stream.periodic(Duration(minutes: minutes), (_) => DateTime.now());
+});
+
+final gpsCalibrationProvider = FutureProvider<void>((ref) async {
+  ref.watch(_gpsCalibrationTickProvider); // tick at configured interval
+  final settings = ref.read(settingsProvider);
+  if (!settings.geofenceSilenceEnabled) return;
+
+  final masjids = ref.read(savedMasjidsProvider);
+  if (masjids.isEmpty) return;
+
+  final controller = ref.read(volumeControllerProvider);
+  final nativeGeoSilenced = await controller.isGeoSilenced();
+
+  // Only correct in SILENCE direction — if native says silenced, trust it
+  if (nativeGeoSilenced) return;
+
+  // Native says NOT silenced — check GPS to see if we should be
+  try {
+    final locationService = ref.read(locationServiceProvider);
+    final position = await locationService.getCurrentPosition();
+    if (position == null) return;
+
+    final nearAny = masjids.any((m) =>
+      !locationService.hasMovedSignificantly(
+        storedLat: m.latitude,
+        storedLng: m.longitude,
+        currentLat: position.latitude,
+        currentLng: position.longitude,
+        thresholdKm: 0.2,
+      ),
+    );
+
+    if (nearAny) {
+      // GPS says we're at a masjid but native missed it — silence
+      await controller.applySilenceForGeo();
+      ref.invalidate(geoSilencedProvider);
+    }
+  } catch (_) {
+    // GPS failed — do nothing, try again next calibration tick
+  }
+});
+
 final activeMasjidGeofencesProvider = FutureProvider<List<String>>((ref) async {
   ref.watch(currentMinuteProvider);
   final controller = ref.read(volumeControllerProvider);

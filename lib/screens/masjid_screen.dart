@@ -314,25 +314,15 @@ class MasjidScreen extends ConsumerWidget {
             'Saved masjid: $name (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})',
           );
 
-      // Only check location if NOT already silenced (if already silenced,
-      // the user is already at a known masjid — no need to recheck)
+      // Save current location = we ARE here. No GPS check needed.
+      // Just silence if not already silenced.
       final settings = ref.read(settingsProvider);
-      // Read native state directly — cached provider may be stale
       final alreadySilenced = await ref.read(volumeControllerProvider).isGeoSilenced();
       if (settings.geofenceSilenceEnabled && !alreadySilenced) {
-        final locationService = ref.read(locationServiceProvider);
-        final isNearby = !locationService.hasMovedSignificantly(
-          storedLat: masjid.latitude,
-          storedLng: masjid.longitude,
-          currentLat: position.latitude,
-          currentLng: position.longitude,
-          thresholdKm: 0.2,
-        );
-        if (isNearby) {
-          await ref.read(volumeControllerProvider).applySilenceForGeo();
-          ref.invalidate(geoSilencedProvider);
+        await ref.read(volumeControllerProvider).applySilenceForGeo();
+        final _ = await ref.refresh(geoSilencedProvider.future);
 
-          if (context.mounted) {
+        if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(AppLocalizations.of(context).phoneSilencedSaved(name)),
@@ -342,7 +332,6 @@ class MasjidScreen extends ConsumerWidget {
             Navigator.popUntil(context, (route) => route.isFirst);
           }
           return;
-        }
       }
 
       if (context.mounted) {

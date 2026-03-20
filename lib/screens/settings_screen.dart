@@ -53,6 +53,61 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
+            // GPS Calibration (only when geofencing is enabled)
+            if (settings.geofenceSilenceEnabled) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.gps_fixed, size: 20, color: AppColors.textSecondary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(l.gpsCalibration, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                              Text(l.gpsCalibrationDesc, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(l.gpsCalibrationInterval(settings.gpsCalibrationMinutes),
+                          style: const TextStyle(fontSize: 14, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                        SizedBox(
+                          width: 180,
+                          child: Slider(
+                            value: settings.gpsCalibrationMinutes.toDouble(),
+                            min: 1,
+                            max: 30,
+                            divisions: 29,
+                            activeColor: AppColors.primary,
+                            onChanged: (v) {
+                              ref.read(settingsProvider.notifier).updateSettings(
+                                settings.copyWith(gpsCalibrationMinutes: v.round()),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // Silence Level
             _SectionCard(
               title: l.silenceLevel,
