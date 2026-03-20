@@ -317,7 +317,8 @@ class MasjidScreen extends ConsumerWidget {
       // Only check location if NOT already silenced (if already silenced,
       // the user is already at a known masjid — no need to recheck)
       final settings = ref.read(settingsProvider);
-      final alreadySilenced = ref.read(geoSilencedProvider).valueOrNull ?? false;
+      // Read native state directly — cached provider may be stale
+      final alreadySilenced = await ref.read(volumeControllerProvider).isGeoSilenced();
       if (settings.geofenceSilenceEnabled && !alreadySilenced) {
         final locationService = ref.read(locationServiceProvider);
         final isNearby = !locationService.hasMovedSignificantly(
