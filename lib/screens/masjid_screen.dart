@@ -476,13 +476,12 @@ class MasjidScreen extends ConsumerWidget {
     if (confirm == true) {
       await ref.read(savedMasjidsProvider.notifier).remove(masjid.id);
 
-      // If no masjids left, clear geo silence (won't break active prayer)
-      final remaining = ref.read(savedMasjidsProvider);
-      if (remaining.isEmpty) {
-        final controller = ref.read(volumeControllerProvider);
-        await controller.clearGeoSilence();
-        ref.invalidate(geoSilencedProvider);
-      }
+      // Clear geo silence — the deleted masjid might be the one
+      // the user is currently at. clearGeoSilence is safe: it only
+      // restores the phone if prayer isn't also active.
+      final controller = ref.read(volumeControllerProvider);
+      await controller.clearGeoSilence();
+      ref.invalidate(geoSilencedProvider);
     }
   }
 }
