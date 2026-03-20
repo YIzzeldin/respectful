@@ -229,11 +229,19 @@ final nextSilenceWindowProvider = Provider<SilenceWindow?>((ref) {
 });
 
 /// Next prayer time info: (name, time). Refreshes every 30 seconds.
+/// Falls back to tomorrow's Fajr after today's Isha has passed.
 final nextPrayerProvider = Provider<(PrayerName, DateTime)?>((ref) {
   final today = ref.watch(todayPrayerTimesProvider);
   if (today == null) return null;
   final now = ref.watch(currentMinuteProvider).valueOrNull ?? DateTime.now();
-  return today.nextPrayer(now);
+
+  final todayNext = today.nextPrayer(now);
+  if (todayNext != null) return todayNext;
+
+  // All today's prayers passed — show tomorrow's Fajr
+  final tomorrow = ref.watch(tomorrowPrayerTimesProvider);
+  if (tomorrow == null) return null;
+  return (PrayerName.fajr, tomorrow.fajr);
 });
 
 // --- Auto-Schedule Alarms ---
@@ -412,8 +420,9 @@ class MasjidModeNotifier extends StateNotifier<MasjidModeState> {
     // Capture phone state BEFORE silencing so we can restore later
     _savedPhoneState = await _volumeController.captureCurrentState();
 
-    // Silence the phone
-    final success = await _volumeController.applySilence();
+    // Silence the phone — use applySilenceForGeo which writes native state
+    // so the restore alarm can work even if the app process dies
+    final success = await _volumeController.applySilenceForGeo();
     if (!success) {
       _savedPhoneState = null;
       await _eventLog.log(EventType.error, 'Masjid mode failed — DND permission missing');

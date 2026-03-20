@@ -93,10 +93,11 @@ class AlarmReceiver : BroadcastReceiver() {
         isSafetyRestore: Boolean
     ) {
         val isSilenced = prefs.getBoolean("is_silenced", false)
+        val isGeoSilenced = prefs.getBoolean("geo_silenced", false)
         val userOverridden = prefs.getBoolean("user_overridden", false)
 
-        if (!isSilenced) {
-            Log.d(TAG, "Restore called but not silenced, skipping")
+        if (!isSilenced && !isGeoSilenced) {
+            Log.d(TAG, "Restore called but not silenced (prayer=$isSilenced, geo=$isGeoSilenced), skipping")
             return
         }
 
@@ -107,13 +108,22 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
-        // Restore saved state
-        val savedState = mapOf(
-            "ringerMode" to prefs.getInt("saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
-            "interruptionFilter" to prefs.getInt("saved_interruption_filter", android.app.NotificationManager.INTERRUPTION_FILTER_ALL),
-            "ringVolume" to prefs.getInt("saved_ring_volume", 5),
-            "notificationVolume" to prefs.getInt("saved_notification_volume", 5)
-        )
+        // Use geo saved state if geo-silenced, otherwise prayer saved state
+        val savedState = if (isGeoSilenced) {
+            mapOf(
+                "ringerMode" to prefs.getInt("geo_saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
+                "interruptionFilter" to prefs.getInt("geo_saved_interruption_filter", android.app.NotificationManager.INTERRUPTION_FILTER_ALL),
+                "ringVolume" to prefs.getInt("geo_saved_ring_volume", 5),
+                "notificationVolume" to prefs.getInt("geo_saved_notification_volume", 5)
+            )
+        } else {
+            mapOf(
+                "ringerMode" to prefs.getInt("saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
+                "interruptionFilter" to prefs.getInt("saved_interruption_filter", android.app.NotificationManager.INTERRUPTION_FILTER_ALL),
+                "ringVolume" to prefs.getInt("saved_ring_volume", 5),
+                "notificationVolume" to prefs.getInt("saved_notification_volume", 5)
+            )
+        }
 
         val success = volumeService.restoreState(savedState)
 
@@ -127,14 +137,16 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    /** Clear all session state. Uses commit() for durability. */
+    /** Clear all session state (prayer + geo). Uses commit() for durability. */
     private fun clearSession(prefs: SharedPreferences) {
         prefs.edit()
             .putBoolean("is_silenced", false)
+            .putBoolean("geo_silenced", false)
             .putBoolean("user_overridden", false)
             .remove("current_prayer")
             .remove("silenced_at")
             .remove("window_end_ms")
+            .remove("active_masjid_geofences")
             .remove("saved_ringer_mode")
             .remove("saved_interruption_filter")
             .remove("saved_ring_volume")
@@ -143,6 +155,10 @@ class AlarmReceiver : BroadcastReceiver() {
             .remove("saved_media_volume")
             .remove("saved_captured_at")
             .remove("saved_change_token")
+            .remove("geo_saved_ringer_mode")
+            .remove("geo_saved_interruption_filter")
+            .remove("geo_saved_ring_volume")
+            .remove("geo_saved_notification_volume")
             .commit()
     }
 }

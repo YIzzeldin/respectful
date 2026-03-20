@@ -88,41 +88,51 @@ object AlarmScheduler {
     fun cancelAllAlarms(context: Context) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        // Cancel silence alarms — action must match the original intent
-        for (i in SILENCE_REQUEST_BASE..SILENCE_REQUEST_BASE + 10) {
-            val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = AlarmReceiver.ACTION_SILENCE
-            }
-            val pi = PendingIntent.getBroadcast(
-                context, i, intent,
-                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-            )
-            pi?.let { alarmManager.cancel(it) }
-        }
+        // Alarm IDs are: base + (day * 10) + prayerIndex
+        // day: 1-31, prayerIndex: 0-5
+        // So silence IDs range from 1010 to 1315, restore from 2010 to 2315
+        for (day in 1..31) {
+            for (prayer in 0..5) {
+                val silenceId = SILENCE_REQUEST_BASE + (day * 10) + prayer
+                val restoreId = RESTORE_REQUEST_BASE + (day * 10) + prayer
 
-        // Cancel restore alarms
-        for (i in RESTORE_REQUEST_BASE..RESTORE_REQUEST_BASE + 10) {
-            val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = AlarmReceiver.ACTION_RESTORE
+                val silenceIntent = Intent(context, AlarmReceiver::class.java).apply {
+                    action = AlarmReceiver.ACTION_SILENCE
+                }
+                PendingIntent.getBroadcast(
+                    context, silenceId, silenceIntent,
+                    PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+                )?.let { alarmManager.cancel(it) }
+
+                val restoreIntent = Intent(context, AlarmReceiver::class.java).apply {
+                    action = AlarmReceiver.ACTION_RESTORE
+                }
+                PendingIntent.getBroadcast(
+                    context, restoreId, restoreIntent,
+                    PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+                )?.let { alarmManager.cancel(it) }
             }
-            val pi = PendingIntent.getBroadcast(
-                context, i, intent,
-                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-            )
-            pi?.let { alarmManager.cancel(it) }
         }
 
         // Cancel safety restore
         val safetyIntent = Intent(context, AlarmReceiver::class.java).apply {
             action = AlarmReceiver.ACTION_SAFETY_RESTORE
         }
-        val safetyPi = PendingIntent.getBroadcast(
+        PendingIntent.getBroadcast(
             context, SAFETY_RESTORE_REQUEST, safetyIntent,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-        )
-        safetyPi?.let { alarmManager.cancel(it) }
+        )?.let { alarmManager.cancel(it) }
 
-        Log.d(TAG, "All alarms cancelled")
+        // Cancel masjid mode restore (request code 3000)
+        val masjidIntent = Intent(context, AlarmReceiver::class.java).apply {
+            action = AlarmReceiver.ACTION_RESTORE
+        }
+        PendingIntent.getBroadcast(
+            context, 3000, masjidIntent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )?.let { alarmManager.cancel(it) }
+
+        Log.d(TAG, "All alarms cancelled (full range)")
     }
 
     private fun scheduleExact(context: Context, triggerAtMs: Long, pendingIntent: PendingIntent) {
