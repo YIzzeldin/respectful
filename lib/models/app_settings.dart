@@ -89,6 +89,7 @@ class AppSettings {
   final SilenceLevel silenceLevel;
   final bool usePerPrayerConfig;
   final bool onboardingComplete;
+  final String languageCode; // 'en' or 'ar'
   final double? latitude;
   final double? longitude;
 
@@ -100,6 +101,7 @@ class AppSettings {
     this.silenceLevel = SilenceLevel.totalSilence,
     this.usePerPrayerConfig = false,
     this.onboardingComplete = false,
+    this.languageCode = 'en',
     this.latitude,
     this.longitude,
   });
@@ -118,6 +120,7 @@ class AppSettings {
     SilenceLevel? silenceLevel,
     bool? usePerPrayerConfig,
     bool? onboardingComplete,
+    String? languageCode,
     double? latitude,
     double? longitude,
   }) =>
@@ -129,6 +132,7 @@ class AppSettings {
         silenceLevel: silenceLevel ?? this.silenceLevel,
         usePerPrayerConfig: usePerPrayerConfig ?? this.usePerPrayerConfig,
         onboardingComplete: onboardingComplete ?? this.onboardingComplete,
+        languageCode: languageCode ?? this.languageCode,
         latitude: latitude ?? this.latitude,
         longitude: longitude ?? this.longitude,
       );

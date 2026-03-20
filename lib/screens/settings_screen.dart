@@ -166,6 +166,46 @@ class SettingsScreen extends ConsumerWidget {
             _LocationCard(settings: settings),
             const SizedBox(height: 16),
 
+            // Language
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.language, size: 20, color: AppColors.textSecondary),
+                      const SizedBox(width: 12),
+                      Text(
+                        settings.languageCode == 'ar' ? 'اللغة' : 'Language',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'en', label: Text('EN')),
+                      ButtonSegment(value: 'ar', label: Text('عربي')),
+                    ],
+                    selected: {settings.languageCode},
+                    onSelectionChanged: (value) {
+                      ref.read(settingsProvider.notifier).updateSettings(
+                            settings.copyWith(languageCode: value.first),
+                          );
+                    },
+                    style: ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // Troubleshooting
             Container(
               decoration: BoxDecoration(
