@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
 import '../models/prayer_day.dart';
@@ -288,27 +289,44 @@ final autoScheduleProvider = FutureProvider<void>((ref) async {
   );
 });
 
-// --- Geofence State (reads native geo_silenced flag) ---
-// Polls every 30 seconds. Logs transitions for the activity screen.
+/// Import native events (from GeofenceReceiver etc.) into Flutter's event log.
+/// Called on each geoSilenced poll — reads and clears native log.
+Future<void> _importNativeEvents(Ref ref) async {
+  try {
+    final controller = ref.read(volumeControllerProvider);
+    final eventLog = ref.read(eventLogServiceProvider);
+    final json = await controller.readNativeEvents();
 
-bool _lastGeoState = false;
+    if (json == '[]') return;
+
+    final List<dynamic> events = jsonDecode(json) as List;
+    for (final event in events) {
+      final type = event['type'] as String? ?? 'info';
+      final message = event['message'] as String? ?? '';
+
+      final eventType = type == 'geofenceEnter'
+          ? EventType.geofenceEnter
+          : type == 'geofenceExit'
+              ? EventType.geofenceExit
+              : EventType.info;
+
+      await eventLog.log(eventType, message);
+    }
+  } catch (_) {}
+}
+
+// --- Geofence State (reads native geo_silenced flag) ---
+// Polls every 30 seconds for UI state. Logging is done natively
+// by GeofenceReceiver — not here (avoids synthetic timestamps).
 
 final geoSilencedProvider = FutureProvider<bool>((ref) async {
   ref.watch(currentMinuteProvider); // refresh every 30s
   final controller = ref.read(volumeControllerProvider);
-  final current = await controller.isGeoSilenced();
 
-  if (current != _lastGeoState) {
-    final eventLog = ref.read(eventLogServiceProvider);
-    if (current) {
-      await eventLog.log(EventType.geofenceEnter, 'Entered masjid - phone silenced');
-    } else {
-      await eventLog.log(EventType.geofenceExit, 'Left masjid - phone restored');
-    }
-    _lastGeoState = current;
-  }
+  // Import native events into Flutter's event log on each poll
+  _importNativeEvents(ref);
 
-  return current;
+  return controller.isGeoSilenced();
 });
 final activeMasjidGeofencesProvider = FutureProvider<List<String>>((ref) async {
   ref.watch(currentMinuteProvider);
