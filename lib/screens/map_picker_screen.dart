@@ -5,6 +5,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import '../core/theme.dart';
+import '../l10n/app_localizations.dart';
 import '../models/saved_masjid.dart';
 import '../providers/app_providers.dart';
 import '../services/event_log_service.dart';
@@ -90,7 +91,7 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Already saved: "${nearbyMasjid.name}" is nearby'),
+            content: Text(AppLocalizations.of(context).alreadySavedNearby(nearbyMasjid.name)),
             backgroundColor: AppColors.warning,
           ),
         );
@@ -141,7 +142,7 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Saved "$name" — phone silenced'),
+                content: Text(AppLocalizations.of(context).phoneSilencedSaved(name)),
                 backgroundColor: AppColors.primary,
               ),
             );
@@ -155,7 +156,7 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Saved "$name"'),
+          content: Text(AppLocalizations.of(context).saved(name)),
           backgroundColor: AppColors.primary,
         ),
       );
@@ -164,13 +165,14 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
   }
 
   Future<String?> _askName(String defaultName) async {
+    final l = AppLocalizations.of(context);
     final controller = TextEditingController(text: defaultName);
     controller.selection =
         TextSelection(baseOffset: 0, extentOffset: defaultName.length);
     return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Name this masjid'),
+        title: Text(l.nameThisMasjid),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -184,11 +186,11 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l.cancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Save'),
+            child: Text(l.save),
           ),
         ],
       ),
@@ -214,9 +216,10 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Masjid from Map'),
+        title: Text(l.addFromMap),
         backgroundColor: AppColors.background,
       ),
       body: FutureBuilder<LatLng>(
@@ -329,8 +332,8 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
                       Expanded(
                         child: Text(
                           _selectedLocation == null
-                              ? 'Tap on the map to place a masjid'
-                              : _addressLabel ?? 'Location selected',
+                              ? l.tapOnMap
+                              : _addressLabel ?? l.locationSelected,
                           style: TextStyle(
                             fontSize: 13,
                             color: _selectedLocation == null
@@ -365,7 +368,7 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
                                   CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
                           : const Icon(Icons.save_rounded),
-                      label: Text(_isLoading ? 'Saving...' : 'Save This Location'),
+                      label: Text(_isLoading ? l.saving : l.saveThisLocation),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../core/theme.dart';
+import '../l10n/app_localizations.dart';
 import '../models/app_settings.dart';
 import '../providers/app_providers.dart';
 import '../services/volume_controller.dart';
@@ -32,6 +33,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _buildWelcome() {
+    final l = AppLocalizations.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -59,38 +61,38 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ),
           ),
           const SizedBox(height: 32),
-          const Text(
-            'Respectful',
-            style: TextStyle(
+          Text(
+            l.appName,
+            style: const TextStyle(
               fontSize: 34,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Silence your phone respectfully',
-            style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+          Text(
+            l.appTagline,
+            style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 40),
 
           // Feature list — lead with masjid detection (main feature)
           _FeatureItem(
             icon: Icons.mosque_rounded,
-            title: 'Smart masjid detection',
-            subtitle: 'Phone silences automatically when you enter a masjid',
+            title: l.smartMasjidDetection,
+            subtitle: l.smartMasjidDesc,
           ),
           const SizedBox(height: 16),
           _FeatureItem(
             icon: Icons.schedule_rounded,
-            title: 'Optional time-based silence',
-            subtitle: 'Silence at prayer times even away from the masjid',
+            title: l.optionalTimeBased,
+            subtitle: l.optionalTimeBasedDesc,
           ),
           const SizedBox(height: 16),
           _FeatureItem(
             icon: Icons.tune_rounded,
-            title: 'Fully customizable',
-            subtitle: 'Per-prayer timing, calculation method, silence level',
+            title: l.fullyCustomizable,
+            subtitle: l.fullyCustomizableDesc,
           ),
           const SizedBox(height: 40),
 
@@ -106,14 +108,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.arrow_forward, color: Colors.white),
-                  SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward, color: Colors.white),
+                  const SizedBox(width: 8),
                   Text(
-                    'Get Started',
-                    style: TextStyle(
+                    l.getStarted,
+                    style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -126,9 +128,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           const SizedBox(height: 16),
           TextButton(
             onPressed: widget.onComplete,
-            child: const Text(
-              'Already have settings? Restore',
-              style: TextStyle(fontSize: 13, color: AppColors.textTertiary),
+            child: Text(
+              l.alreadyHaveSettings,
+              style: const TextStyle(fontSize: 13, color: AppColors.textTertiary),
             ),
           ),
           const SizedBox(height: 16),
@@ -176,7 +178,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             height: 56,
             child: ElevatedButton(
               onPressed: _canProceed() ? _nextStep : null,
-              child: Text(_step == 3 ? 'Complete Setup' : 'Continue'),
+              child: Text(_step == 3 ? AppLocalizations.of(context).completeSetup : AppLocalizations.of(context).continueText),
             ),
           ),
           const SizedBox(height: 32),
@@ -186,17 +188,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _buildLocationStep() {
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Your Location',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+        Text(
+          l.yourLocation,
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'We need your location to calculate accurate prayer times for your area.',
-          style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
+        Text(
+          l.locationDesc,
+          style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 32),
         SizedBox(
@@ -207,7 +210,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               _locationGranted ? Icons.check_circle : Icons.my_location,
               color: _locationGranted ? AppColors.success : AppColors.primary,
             ),
-            label: Text(_locationGranted ? 'Location granted' : 'Grant location access'),
+            label: Text(_locationGranted ? l.locationGranted : l.grantLocationAccess),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -222,17 +225,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _buildMethodStep() {
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Calculation Method',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+        Text(
+          l.calculationMethod,
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Choose the prayer time calculation method used in your region.',
-          style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
+        Text(
+          l.chooseCalcMethod,
+          style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 24),
         ...CalculationMethodType.values.map((method) => Padding(
@@ -281,23 +285,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _buildPermissionStep() {
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Permissions',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+        Text(
+          l.permissions,
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'These permissions are needed for Respectful to silence your phone.',
-          style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
+        Text(
+          l.permissionsDesc,
+          style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 32),
         _PermissionTile(
           icon: Icons.do_not_disturb_on,
-          title: 'Do Not Disturb Access',
-          subtitle: 'Required to silence your phone automatically',
+          title: l.dndAccess,
+          subtitle: l.dndAccessDesc,
           granted: _dndGranted,
           onRequest: _requestDnd,
         ),
@@ -312,10 +317,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             children: [
               Icon(Icons.info_outline, size: 20, color: AppColors.warning),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Total silence mode blocks ALL sounds including calls and alarms while at a masjid or during prayer.',
-                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  l.totalSilenceWarning,
+                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                 ),
               ),
             ],
@@ -350,7 +355,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (!serviceEnabled) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please enable location services')),
+            SnackBar(content: Text(AppLocalizations.of(context).pleaseEnableLocation)),
           );
         }
         return;
@@ -362,7 +367,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         if (permission == LocationPermission.denied) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Location permission denied')),
+              SnackBar(content: Text(AppLocalizations.of(context).locationPermDenied)),
             );
           }
           return;
@@ -372,7 +377,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permission permanently denied. Please enable in settings.')),
+            SnackBar(content: Text(AppLocalizations.of(context).locationPermPermanentlyDenied)),
           );
         }
         return;
@@ -389,7 +394,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to get location: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context).failedToGetLocation('$e'))),
         );
       }
     }
@@ -513,7 +518,7 @@ class _PermissionTile extends StatelessWidget {
           if (!granted)
             TextButton(
               onPressed: onRequest,
-              child: const Text('Grant'),
+              child: Text(AppLocalizations.of(context).grant),
             )
           else
             const Icon(Icons.check_circle, color: AppColors.success, size: 22),

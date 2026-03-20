@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
+import '../l10n/app_localizations.dart';
 import '../models/prayer_day.dart';
 
 class NextPrayerBanner extends StatefulWidget {
@@ -49,17 +50,17 @@ class _NextPrayerBannerState extends State<NextPrayerBanner> {
     });
   }
 
-  String _getStatusText() {
-    if (widget.isAtMasjid) return 'You are at a masjid — phone silenced';
-    if (widget.isSilenced) return 'Currently silenced';
+  String _getStatusText(AppLocalizations l) {
+    if (widget.isAtMasjid) return l.youAreAtMasjidSilenced;
+    if (widget.isSilenced) return l.currentlySilenced;
     if (widget.timeBasedEnabled && widget.geofenceEnabled) {
-      return 'Silences at masjid or in ${_formatDuration(_remaining)}';
+      return l.silencesAtMasjidOrIn(_formatDuration(_remaining));
     }
     if (widget.geofenceEnabled) {
-      return 'Silences when you enter a saved masjid';
+      return l.silencesAtMasjid;
     }
     if (widget.timeBasedEnabled) {
-      return 'Silences in ${_formatDuration(_remaining)}';
+      return l.silencesIn(_formatDuration(_remaining));
     }
     return '';
   }
@@ -83,6 +84,7 @@ class _NextPrayerBannerState extends State<NextPrayerBanner> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -104,9 +106,9 @@ class _NextPrayerBannerState extends State<NextPrayerBanner> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'NEXT PRAYER',
-                    style: TextStyle(
+                  Text(
+                    l.nextPrayer,
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: Colors.white70,
@@ -115,7 +117,7 @@ class _NextPrayerBannerState extends State<NextPrayerBanner> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    widget.prayer.displayName,
+                    l.prayerName(widget.prayer.displayName),
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
@@ -135,9 +137,9 @@ class _NextPrayerBannerState extends State<NextPrayerBanner> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text(
-                    'Starts in',
-                    style: TextStyle(
+                  Text(
+                    l.startsIn,
+                    style: const TextStyle(
                       fontSize: 12,
                       color: Colors.white60,
                     ),
@@ -173,7 +175,7 @@ class _NextPrayerBannerState extends State<NextPrayerBanner> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    _getStatusText(),
+                    _getStatusText(l),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,

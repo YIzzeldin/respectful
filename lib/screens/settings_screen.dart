@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../core/theme.dart';
+import '../l10n/app_localizations.dart';
 import '../models/app_settings.dart';
 import '../models/prayer_day.dart';
 import '../models/prayer_timing_config.dart';
@@ -14,6 +15,7 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final settings = ref.watch(settingsProvider);
 
     return Scaffold(
@@ -23,17 +25,17 @@ class SettingsScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           children: [
             // Header
-            Text('Settings', style: Theme.of(context).textTheme.headlineMedium),
+            Text(l.settings, style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 24),
 
             // Silence Modes — geofence ON by default, time-based OFF by default
             _SectionCard(
-              title: 'Silence Modes',
+              title: l.silenceModes,
               children: [
                 _ToggleRow(
                   icon: Icons.mosque_rounded,
-                  label: 'Masjid Detection',
-                  subtitle: 'Auto-silence when near a saved masjid',
+                  label: l.masjidDetection,
+                  subtitle: l.masjidDetectionDesc,
                   value: settings.geofenceSilenceEnabled,
                   onChanged: (v) => ref.read(settingsProvider.notifier)
                       .setGeofenceSilenceEnabled(v),
@@ -41,8 +43,8 @@ class SettingsScreen extends ConsumerWidget {
                 const Divider(height: 20),
                 _ToggleRow(
                   icon: Icons.schedule_rounded,
-                  label: 'Time-Based Silence',
-                  subtitle: 'Auto-silence at prayer times',
+                  label: l.timeBasedSilence,
+                  subtitle: l.timeBasedSilenceDesc,
                   value: settings.timeBasedSilenceEnabled,
                   onChanged: (v) => ref.read(settingsProvider.notifier)
                       .setTimeBasedSilenceEnabled(v),
@@ -53,23 +55,23 @@ class SettingsScreen extends ConsumerWidget {
 
             // Silence Level
             _SectionCard(
-              title: 'Silence Level',
+              title: l.silenceLevel,
               children: [
                 _SilenceLevelOption(
-                  title: 'Priority Silence (Recommended)',
-                  subtitle: 'Blocks notifications, allows alarms & starred contacts',
+                  title: l.prioritySilence,
+                  subtitle: l.prioritySilenceDesc,
                   isSelected: settings.silenceLevel == SilenceLevel.prioritySilence,
                   onTap: () => ref.read(settingsProvider.notifier)
                       .setSilenceLevel(SilenceLevel.prioritySilence),
                 ),
                 const SizedBox(height: 12),
                 _SilenceLevelOption(
-                  title: 'Total Silence',
-                  subtitle: 'Blocks everything including alarms and calls',
+                  title: l.totalSilence,
+                  subtitle: l.totalSilenceDesc,
                   isSelected: settings.silenceLevel == SilenceLevel.totalSilence,
                   onTap: () => ref.read(settingsProvider.notifier)
                       .setSilenceLevel(SilenceLevel.totalSilence),
-                  warning: 'Use with caution — may miss important calls',
+                  warning: l.cautionMessage,
                 ),
               ],
             ),
@@ -89,13 +91,13 @@ class SettingsScreen extends ConsumerWidget {
               final afterMax = configs.map((c) => c.minutesAfter).reduce((a, b) => a > b ? a : b);
 
               return _SectionCard(
-                title: 'Default Timing',
+                title: l.defaultTiming,
                 children: [
-                  _TimingRow(label: 'Before iqamah', value: beforeMin, unit: beforeMin == beforeMax ? 'min' : '-$beforeMax min'),
+                  _TimingRow(label: l.beforeIqamah, value: beforeMin, unit: beforeMin == beforeMax ? l.min : '-$beforeMax ${l.min}'),
                   const Divider(height: 24),
-                  _TimingRow(label: 'Prayer duration', value: PrayerTimingConfig.prayerDurationMinutes, unit: 'min (fixed)'),
+                  _TimingRow(label: l.prayerDuration, value: PrayerTimingConfig.prayerDurationMinutes, unit: '${l.min} (${l.fixed})'),
                   const Divider(height: 24),
-                  _TimingRow(label: 'After prayer', value: afterMin, unit: afterMin == afterMax ? 'min' : '-$afterMax min'),
+                  _TimingRow(label: l.afterPrayer, value: afterMin, unit: afterMin == afterMax ? l.min : '-$afterMax ${l.min}'),
                 ],
               );
             }),
@@ -103,11 +105,11 @@ class SettingsScreen extends ConsumerWidget {
 
             // Per-prayer timing — tappable to edit
             _SectionCard(
-              title: 'Per-Prayer Timing',
+              title: l.perPrayerTiming,
               children: [
-                const Text(
-                  'Tap a prayer to customize its timing',
-                  style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                Text(
+                  l.tapToCustomize,
+                  style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
                 ),
                 const SizedBox(height: 8),
                 ...PrayerName.values.map((prayer) => Padding(
@@ -125,7 +127,7 @@ class SettingsScreen extends ConsumerWidget {
 
             // Calculation Method
             _SectionCard(
-              title: 'Calculation Method',
+              title: l.calculationMethod,
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -181,7 +183,7 @@ class SettingsScreen extends ConsumerWidget {
                       const Icon(Icons.language, size: 20, color: AppColors.textSecondary),
                       const SizedBox(width: 12),
                       Text(
-                        settings.languageCode == 'ar' ? 'اللغة' : 'Language',
+                        l.language,
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                       ),
                     ],
@@ -224,19 +226,19 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     );
                   },
-                  child: const Padding(
-                    padding: EdgeInsets.all(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        Icon(Icons.build_rounded, size: 20, color: AppColors.textSecondary),
-                        SizedBox(width: 12),
+                        const Icon(Icons.build_rounded, size: 20, color: AppColors.textSecondary),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Troubleshooting',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                            l.troubleshooting,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                           ),
                         ),
-                        Icon(Icons.chevron_right, color: AppColors.textTertiary),
+                        const Icon(Icons.chevron_right, color: AppColors.textTertiary),
                       ],
                     ),
                   ),
@@ -438,6 +440,7 @@ class _PerPrayerTimingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Material(
       color: AppColors.surfaceVariant,
       borderRadius: BorderRadius.circular(12),
@@ -454,14 +457,14 @@ class _PerPrayerTimingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      prayer.displayName,
+                      l.prayerName(prayer.displayName),
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${config.minutesBeforeIqamah}m before iqamah · '
-                      '${PrayerTimingConfig.prayerDurationMinutes}m prayer · '
-                      '${config.minutesAfter}m after',
+                      '${config.minutesBeforeIqamah}${l.min} ${l.beforeIqamah} · '
+                      '${PrayerTimingConfig.prayerDurationMinutes}${l.min} ${l.prayerDuration} · '
+                      '${config.minutesAfter}${l.min} ${l.afterPrayer}',
                       style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
                     ),
                   ],
@@ -545,6 +548,7 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: EdgeInsets.only(
         left: 24,
@@ -561,11 +565,11 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                widget.prayer.displayName,
+                l.prayerName(widget.prayer.displayName),
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
               ),
               Text(
-                'Total: ${_total}m',
+                l.totalTime(_total),
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -576,7 +580,7 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Prayer duration: ${PrayerTimingConfig.prayerDurationMinutes} min (fixed)',
+            '${l.prayerDuration}: ${PrayerTimingConfig.prayerDurationMinutes} ${l.min} (${l.fixed})',
             style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
           const SizedBox(height: 24),
@@ -585,7 +589,7 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Auto-silence for this prayer', style: TextStyle(fontSize: 15)),
+              Text(l.autoSilenceForPrayer, style: const TextStyle(fontSize: 15)),
               Switch(
                 value: _enabled,
                 activeTrackColor: AppColors.primary,
@@ -597,14 +601,14 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
 
           // Sliders — just 2 settings
           _SliderRow(
-            label: 'Before iqamah',
+            label: l.beforeIqamah,
             value: _beforeIqamah,
             min: 0,
             max: 60,
             onChanged: (v) => setState(() => _beforeIqamah = v),
           ),
           _SliderRow(
-            label: 'After prayer',
+            label: l.afterPrayer,
             value: _minutesAfter,
             min: 0,
             max: 30,
@@ -626,7 +630,7 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
                 ));
                 Navigator.pop(context);
               },
-              child: const Text('Save'),
+              child: Text(l.save),
             ),
           ),
           const SizedBox(height: 8),
@@ -640,9 +644,9 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
                   _enabled = defaultConfig.enabled;
                 });
               },
-              child: const Text(
-                'Reset to defaults',
-                style: TextStyle(fontSize: 13, color: AppColors.textTertiary),
+              child: Text(
+                l.resetToDefaults,
+                style: const TextStyle(fontSize: 13, color: AppColors.textTertiary),
               ),
             ),
           ),
@@ -669,6 +673,7 @@ class _SliderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(
@@ -679,7 +684,7 @@ class _SliderRow extends StatelessWidget {
             children: [
               Text(label, style: const TextStyle(fontSize: 14)),
               Text(
-                '$value min',
+                '$value ${l.min}',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -730,7 +735,7 @@ class _LocationCardState extends ConsumerState<_LocationCard> {
       if (!serviceEnabled) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please enable location services')),
+            SnackBar(content: Text(AppLocalizations.of(context).pleaseEnableLocation)),
           );
         }
         return;
@@ -744,7 +749,7 @@ class _LocationCardState extends ConsumerState<_LocationCard> {
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permission permanently denied')),
+            SnackBar(content: Text(AppLocalizations.of(context).locationPermPermanentlyDenied)),
           );
         }
         return;
@@ -768,8 +773,8 @@ class _LocationCardState extends ConsumerState<_LocationCard> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Location updated — prayer times recalculated'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).locationUpdated),
             backgroundColor: AppColors.primary,
           ),
         );
@@ -777,7 +782,7 @@ class _LocationCardState extends ConsumerState<_LocationCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to get location: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context).failedToGetLocation('$e'))),
         );
       }
     } finally {
@@ -787,6 +792,7 @@ class _LocationCardState extends ConsumerState<_LocationCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final hasLocation = widget.settings.hasLocation;
     final lat = widget.settings.latitude?.toStringAsFixed(4) ?? '—';
     final lng = widget.settings.longitude?.toStringAsFixed(4) ?? '—';
@@ -800,9 +806,9 @@ class _LocationCardState extends ConsumerState<_LocationCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Location',
-            style: TextStyle(
+          Text(
+            l.location,
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -818,14 +824,14 @@ class _LocationCardState extends ConsumerState<_LocationCard> {
               ),
               const SizedBox(width: 8),
               Text(
-                hasLocation ? '$lat, $lng' : 'Not set',
+                hasLocation ? '$lat, $lng' : l.notSet,
                 style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(
-            'Updates automatically when you travel >10km',
+            l.autoUpdatesOnTravel,
             style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
           const SizedBox(height: 14),
@@ -840,7 +846,7 @@ class _LocationCardState extends ConsumerState<_LocationCard> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.my_location, size: 18),
-              label: Text(_isRefreshing ? 'Updating...' : 'Update Location Now'),
+              label: Text(_isRefreshing ? l.updating : l.updateLocationNow),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
