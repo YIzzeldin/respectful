@@ -41,15 +41,16 @@ class _LocationRefreshListenerState
 
   void _refreshLocation() {
     ref.invalidate(locationRefreshProvider);
-    // Also re-check permissions on resume
     ref.invalidate(dndPermissionProvider);
     ref.invalidate(exactAlarmPermissionProvider);
+    // Import any native events that happened while app was backgrounded/dead
+    ref.invalidate(importNativeEventsProvider);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Watch the provider to keep it alive
     ref.watch(locationRefreshProvider);
+    ref.watch(importNativeEventsProvider); // keep alive so events import on resume
     return widget.child;
   }
 }
