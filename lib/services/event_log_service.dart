@@ -13,13 +13,13 @@ class EventLogService {
     _prefs = await SharedPreferences.getInstance();
   }
 
-  /// Log an event.
-  Future<void> log(EventType type, String message) async {
+  /// Log an event with optional timestamp (defaults to now).
+  Future<void> log(EventType type, String message, {DateTime? at}) async {
     final entries = _loadEntries();
     entries.insert(0, EventEntry(
       type: type,
       message: message,
-      timestamp: DateTime.now(),
+      timestamp: at ?? DateTime.now(),
     ));
 
     // Cap at max entries

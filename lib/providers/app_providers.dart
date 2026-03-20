@@ -289,8 +289,12 @@ final autoScheduleProvider = FutureProvider<void>((ref) async {
   );
 });
 
-/// Import native events (from GeofenceReceiver etc.) into Flutter's event log.
-/// Called on each geoSilenced poll — reads and clears native log.
+/// Imports native events into Flutter's event log. Triggered on app resume
+/// and on geoSilenced poll. Reads and clears the native log atomically.
+final importNativeEventsProvider = FutureProvider<void>((ref) async {
+  await _importNativeEvents(ref);
+});
+
 Future<void> _importNativeEvents(Ref ref) async {
   try {
     final controller = ref.read(volumeControllerProvider);
@@ -303,6 +307,7 @@ Future<void> _importNativeEvents(Ref ref) async {
     for (final event in events) {
       final type = event['type'] as String? ?? 'info';
       final message = event['message'] as String? ?? '';
+      final timestampMs = event['timestamp'] as int? ?? 0;
 
       final eventType = type == 'geofenceEnter'
           ? EventType.geofenceEnter
@@ -310,7 +315,12 @@ Future<void> _importNativeEvents(Ref ref) async {
               ? EventType.geofenceExit
               : EventType.info;
 
-      await eventLog.log(eventType, message);
+      // Use the real native timestamp, not DateTime.now()
+      final realTimestamp = timestampMs > 0
+          ? DateTime.fromMillisecondsSinceEpoch(timestampMs)
+          : DateTime.now();
+
+      await eventLog.log(eventType, message, at: realTimestamp);
     }
   } catch (_) {}
 }
@@ -323,8 +333,8 @@ final geoSilencedProvider = FutureProvider<bool>((ref) async {
   ref.watch(currentMinuteProvider); // refresh every 30s
   final controller = ref.read(volumeControllerProvider);
 
-  // Import native events into Flutter's event log on each poll
-  _importNativeEvents(ref);
+  // Import any native events that happened while Flutter was dead
+  ref.watch(importNativeEventsProvider);
 
   return controller.isGeoSilenced();
 });
