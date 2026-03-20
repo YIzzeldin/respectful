@@ -94,9 +94,10 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
           'Saved masjid from map: $name',
         );
 
-    // Check if user is near this location — silence immediately if so
+    // Only check if NOT already silenced
     final settings = ref.read(settingsProvider);
-    if (settings.geofenceSilenceEnabled) {
+    final alreadySilenced = ref.read(geoSilencedProvider).valueOrNull ?? false;
+    if (settings.geofenceSilenceEnabled && !alreadySilenced) {
       try {
         final position = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),

@@ -285,10 +285,11 @@ class MasjidScreen extends ConsumerWidget {
             'Saved masjid: $name (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})',
           );
 
-      // If user is at this masjid right now (saving current location), silence immediately
-      // Android geofences won't fire ENTER if already inside when registered
+      // Only check location if NOT already silenced (if already silenced,
+      // the user is already at a known masjid — no need to recheck)
       final settings = ref.read(settingsProvider);
-      if (settings.geofenceSilenceEnabled) {
+      final alreadySilenced = ref.read(geoSilencedProvider).valueOrNull ?? false;
+      if (settings.geofenceSilenceEnabled && !alreadySilenced) {
         final locationService = ref.read(locationServiceProvider);
         final isNearby = !locationService.hasMovedSignificantly(
           storedLat: masjid.latitude,
@@ -308,7 +309,6 @@ class MasjidScreen extends ConsumerWidget {
                 backgroundColor: AppColors.primary,
               ),
             );
-            // Go back to home so user sees the dark skin
             Navigator.popUntil(context, (route) => route.isFirst);
           }
           return;
@@ -476,12 +476,39 @@ class MasjidScreen extends ConsumerWidget {
     if (confirm == true) {
       await ref.read(savedMasjidsProvider.notifier).remove(masjid.id);
 
-      // Clear geo silence — the deleted masjid might be the one
-      // the user is currently at. clearGeoSilence is safe: it only
-      // restores the phone if prayer isn't also active.
-      final controller = ref.read(volumeControllerProvider);
-      await controller.clearGeoSilence();
-      ref.invalidate(geoSilencedProvider);
+      // Check if still inside any remaining masjid
+      final isSilenced = ref.read(geoSilencedProvider).valueOrNull ?? false;
+      if (isSilenced) {
+        final remaining = ref.read(savedMasjidsProvider);
+        if (remaining.isEmpty) {
+          // No masjids left — clear silence
+          await ref.read(volumeControllerProvider).clearGeoSilence();
+          ref.invalidate(geoSilencedProvider);
+        } else {
+          // Check if user is inside any remaining masjid
+          try {
+            final position = await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+            );
+            final locationService = ref.read(locationServiceProvider);
+            final stillInside = remaining.any((m) =>
+              !locationService.hasMovedSignificantly(
+                storedLat: m.latitude,
+                storedLng: m.longitude,
+                currentLat: position.latitude,
+                currentLng: position.longitude,
+                thresholdKm: 0.2,
+              ),
+            );
+            if (!stillInside) {
+              await ref.read(volumeControllerProvider).clearGeoSilence();
+              ref.invalidate(geoSilencedProvider);
+            }
+          } catch (_) {
+            // GPS failed — leave state as is, geofence exit will handle it
+          }
+        }
+      }
     }
   }
 }
