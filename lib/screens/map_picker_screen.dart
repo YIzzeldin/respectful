@@ -112,6 +112,16 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
         if (isNearby) {
           await ref.read(volumeControllerProvider).applySilenceForGeo();
           ref.invalidate(geoSilencedProvider);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Saved "$name" — phone silenced'),
+                backgroundColor: AppColors.primary,
+              ),
+            );
+            Navigator.popUntil(context, (route) => route.isFirst);
+          }
+          return;
         }
       } catch (_) {}
     }

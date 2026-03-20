@@ -300,6 +300,18 @@ class MasjidScreen extends ConsumerWidget {
         if (isNearby) {
           await ref.read(volumeControllerProvider).applySilenceForGeo();
           ref.invalidate(geoSilencedProvider);
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Saved "$name" — phone silenced'),
+                backgroundColor: AppColors.primary,
+              ),
+            );
+            // Go back to home so user sees the dark skin
+            Navigator.popUntil(context, (route) => route.isFirst);
+          }
+          return;
         }
       }
 
