@@ -505,32 +505,43 @@ class MasjidScreen extends ConsumerWidget {
       final remaining = ref.read(savedMasjidsProvider);
 
       if (remaining.isEmpty) {
-        // No masjids left — force clear everything, no ambiguity
+        // No masjids left — force clear everything
         await controller.forceRestoreNormal();
         ref.invalidate(geoSilencedProvider);
       } else {
         // Still have masjids — check if near any remaining one
         final isGeoSilenced = await controller.isGeoSilenced();
         if (isGeoSilenced) {
+          // Get current position, fall back to deleted masjid's coords
+          double lat = masjid.latitude;
+          double lng = masjid.longitude;
           try {
             final position = await Geolocator.getCurrentPosition(
-              locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-            );
-            final locationService = ref.read(locationServiceProvider);
-            final stillInside = remaining.any((m) =>
-              !locationService.hasMovedSignificantly(
-                storedLat: m.latitude,
-                storedLng: m.longitude,
-                currentLat: position.latitude,
-                currentLng: position.longitude,
-                thresholdKm: 0.2,
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.high,
+                timeLimit: Duration(seconds: 5),
               ),
             );
-            if (!stillInside) {
-              await controller.clearGeoSilence();
-              ref.invalidate(geoSilencedProvider);
-            }
-          } catch (_) {}
+            lat = position.latitude;
+            lng = position.longitude;
+          } catch (_) {
+            // GPS failed — use deleted masjid's coords as approximation
+          }
+
+          final locationService = ref.read(locationServiceProvider);
+          final stillInside = remaining.any((m) =>
+            !locationService.hasMovedSignificantly(
+              storedLat: m.latitude,
+              storedLng: m.longitude,
+              currentLat: lat,
+              currentLng: lng,
+              thresholdKm: 0.2,
+            ),
+          );
+          if (!stillInside) {
+            await controller.clearGeoSilence();
+            ref.invalidate(geoSilencedProvider);
+          }
         }
       }
     }
