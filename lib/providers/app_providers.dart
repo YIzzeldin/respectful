@@ -399,8 +399,6 @@ class MasjidModeNotifier extends StateNotifier<MasjidModeState> {
   final List<SilenceWindow> Function() _getWindows;
   final AppSettings Function() _getSettings;
 
-  /// Captured phone state before masjid mode silenced — used to restore.
-  Map<String, dynamic>? _savedPhoneState;
 
   MasjidModeNotifier(
     this._volumeController,
@@ -417,14 +415,10 @@ class MasjidModeNotifier extends StateNotifier<MasjidModeState> {
 
     final now = DateTime.now();
 
-    // Capture phone state BEFORE silencing so we can restore later
-    _savedPhoneState = await _volumeController.captureCurrentState();
-
-    // Silence the phone — use applySilenceForGeo which writes native state
-    // so the restore alarm can work even if the app process dies
+    // Silence the phone — applySilenceForGeo captures state on native side
+    // before silencing, so it's durable across process death
     final success = await _volumeController.applySilenceForGeo();
     if (!success) {
-      _savedPhoneState = null;
       await _eventLog.log(EventType.error, 'Masjid mode failed — DND permission missing');
       return;
     }
@@ -447,15 +441,14 @@ class MasjidModeNotifier extends StateNotifier<MasjidModeState> {
     );
   }
 
-  /// Deactivate masjid mode — restore phone state, then reschedule prayer alarms.
+  /// Deactivate masjid mode — restore phone state, clear native flags, reschedule alarms.
   Future<void> deactivate() async {
     if (!state.isActive) return;
 
-    // Restore phone to pre-masjid state
-    if (_savedPhoneState != null) {
-      await _volumeController.restoreState(_savedPhoneState!);
-      _savedPhoneState = null;
-    }
+    // Use forceRestoreNormal to clear ALL native state (geo_silenced etc.)
+    // and restore phone to normal. This is cleaner than trying to restore
+    // from the in-memory snapshot which may be stale.
+    await _volumeController.forceRestoreNormal();
 
     state = const MasjidModeState();
 
