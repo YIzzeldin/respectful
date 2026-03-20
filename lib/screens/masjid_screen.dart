@@ -456,44 +456,6 @@ class MasjidScreen extends ConsumerWidget {
 
   /// Retries GPS until successful, then compares against remaining masjids.
   /// Shows the user feedback on each retry.
-  Future<void> _checkLocationAndClearIfNeeded(
-    BuildContext context, WidgetRef ref, List<SavedMasjid> remaining,
-  ) async {
-    final controller = ref.read(volumeControllerProvider);
-    final locationService = ref.read(locationServiceProvider);
-
-    final position = await GpsRetryService.getPositionWithRetry(context: context);
-
-    if (position != null) {
-      final stillInside = remaining.any((m) =>
-        !locationService.hasMovedSignificantly(
-          storedLat: m.latitude,
-          storedLng: m.longitude,
-          currentLat: position.latitude,
-          currentLng: position.longitude,
-          thresholdKm: 0.2,
-        ),
-      );
-      if (!stillInside) {
-        await controller.clearGeoSilence();
-        final _ = await ref.refresh(geoSilencedProvider.future);
-        ref.invalidate(activeMasjidGeofencesProvider);
-      }
-    } else {
-      // All retries exhausted — clear to avoid stuck state
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context).gpsFailed),
-            backgroundColor: AppColors.warning,
-          ),
-        );
-      }
-      await controller.clearGeoSilence();
-      final _ = await ref.refresh(geoSilencedProvider.future);
-      ref.invalidate(activeMasjidGeofencesProvider);
-    }
-  }
 
   void _renameMasjid(BuildContext context, WidgetRef ref, SavedMasjid masjid) async {
     final l = AppLocalizations.of(context);
@@ -552,19 +514,42 @@ class MasjidScreen extends ConsumerWidget {
       final controller = ref.read(volumeControllerProvider);
       final remaining = ref.read(savedMasjidsProvider);
 
+      // Always clear geo silence on delete — then re-evaluate
+      // The deleted masjid might be the one keeping geo_silenced=true
+      final wasGeoSilenced = await controller.isGeoSilenced();
+
       if (remaining.isEmpty) {
         // No masjids left — force clear everything
         await controller.forceRestoreNormal();
-        final _ = await ref.refresh(geoSilencedProvider.future);
-        ref.invalidate(activeMasjidGeofencesProvider);
-      } else {
-        // Still have masjids — check if near any remaining one
-        final isGeoSilenced = await controller.isGeoSilenced();
+      } else if (wasGeoSilenced) {
+        // Had geo silence — clear it first, then check if still near any remaining
+        await controller.clearGeoSilence();
+
         if (!context.mounted) return;
-        if (isGeoSilenced) {
-          await _checkLocationAndClearIfNeeded(context, ref, remaining);
+
+        // Now check if we should re-silence for a remaining masjid
+        final position = await GpsRetryService.getPositionWithRetry(context: context);
+        if (position != null) {
+          final locationService = ref.read(locationServiceProvider);
+          final nearRemaining = remaining.any((m) =>
+            !locationService.hasMovedSignificantly(
+              storedLat: m.latitude,
+              storedLng: m.longitude,
+              currentLat: position.latitude,
+              currentLng: position.longitude,
+              thresholdKm: 0.2,
+            ),
+          );
+          if (nearRemaining) {
+            // Still near another masjid — re-silence
+            await controller.applySilenceForGeo();
+          }
         }
       }
+
+      // Force UI refresh
+      final _ = await ref.refresh(geoSilencedProvider.future);
+      ref.invalidate(activeMasjidGeofencesProvider);
     }
   }
 }
