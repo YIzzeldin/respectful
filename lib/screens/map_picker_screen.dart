@@ -8,6 +8,7 @@ import '../core/theme.dart';
 import '../models/saved_masjid.dart';
 import '../providers/app_providers.dart';
 import '../services/event_log_service.dart';
+import '../services/gps_retry_service.dart';
 
 /// Map picker screen — tap to place a pin, save as a masjid location.
 class MapPickerScreen extends ConsumerStatefulWidget {
@@ -123,11 +124,9 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
     // Only check if NOT already silenced
     final settings = ref.read(settingsProvider);
     final alreadySilenced = ref.read(geoSilencedProvider).valueOrNull ?? false;
-    if (settings.geofenceSilenceEnabled && !alreadySilenced) {
-      try {
-        final position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-        );
+    if (settings.geofenceSilenceEnabled && !alreadySilenced && mounted) {
+      final position = await GpsRetryService.getPositionWithRetry(context: context);
+      if (position != null) {
         final locationService = ref.read(locationServiceProvider);
         final isNearby = !locationService.hasMovedSignificantly(
           storedLat: masjid.latitude,
@@ -150,7 +149,7 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
           }
           return;
         }
-      } catch (_) {}
+      }
     }
 
     if (mounted) {

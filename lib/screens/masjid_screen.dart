@@ -7,6 +7,7 @@ import '../core/theme.dart';
 import '../models/saved_masjid.dart';
 import '../providers/app_providers.dart';
 import '../services/event_log_service.dart';
+import '../services/gps_retry_service.dart';
 import 'map_picker_screen.dart';
 
 class MasjidScreen extends ConsumerWidget {
@@ -457,57 +458,35 @@ class MasjidScreen extends ConsumerWidget {
     final controller = ref.read(volumeControllerProvider);
     final locationService = ref.read(locationServiceProvider);
 
-    for (int attempt = 1; attempt <= 5; attempt++) {
-      try {
-        final position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 10),
-          ),
-        );
+    final position = await GpsRetryService.getPositionWithRetry(context: context);
 
-        final stillInside = remaining.any((m) =>
-          !locationService.hasMovedSignificantly(
-            storedLat: m.latitude,
-            storedLng: m.longitude,
-            currentLat: position.latitude,
-            currentLng: position.longitude,
-            thresholdKm: 0.2,
-          ),
-        );
-
-        if (!stillInside) {
-          await controller.clearGeoSilence();
-          ref.invalidate(geoSilencedProvider);
-        }
-        return; // GPS succeeded — done
-      } catch (_) {
-        // GPS failed — show user and retry
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('GPS unavailable — retrying in 30s (attempt $attempt/5)'),
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-        if (attempt < 5) {
-          await Future.delayed(const Duration(seconds: 30));
-        }
-      }
-    }
-
-    // All retries exhausted — clear anyway to avoid stuck state
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('GPS failed after 5 attempts — clearing silence'),
-          backgroundColor: AppColors.warning,
+    if (position != null) {
+      final stillInside = remaining.any((m) =>
+        !locationService.hasMovedSignificantly(
+          storedLat: m.latitude,
+          storedLng: m.longitude,
+          currentLat: position.latitude,
+          currentLng: position.longitude,
+          thresholdKm: 0.2,
         ),
       );
+      if (!stillInside) {
+        await controller.clearGeoSilence();
+        ref.invalidate(geoSilencedProvider);
+      }
+    } else {
+      // All retries exhausted — clear to avoid stuck state
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('GPS failed — clearing silence to avoid stuck state'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+      }
+      await controller.clearGeoSilence();
+      ref.invalidate(geoSilencedProvider);
     }
-    await controller.clearGeoSilence();
-    ref.invalidate(geoSilencedProvider);
   }
 
   void _renameMasjid(BuildContext context, WidgetRef ref, SavedMasjid masjid) async {
