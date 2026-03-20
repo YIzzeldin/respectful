@@ -18,11 +18,6 @@ class VolumeController {
     return await _channel.invokeMethod<bool>('applySilence') ?? false;
   }
 
-  /// Apply priority silence: allows alarms and starred contacts through.
-  Future<bool> applyPrioritySilence() async {
-    return await _channel.invokeMethod<bool>('applyPrioritySilence') ?? false;
-  }
-
   /// Restore phone to a previously captured state.
   Future<bool> restoreState(Map<String, dynamic> state) async {
     return await _channel.invokeMethod<bool>('restoreState', state) ?? false;

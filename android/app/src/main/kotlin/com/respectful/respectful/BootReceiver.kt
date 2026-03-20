@@ -30,39 +30,51 @@ class BootReceiver : BroadcastReceiver() {
     private fun handleSilenceRecovery(context: Context) {
         val prefs = context.getSharedPreferences(AlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE)
         val isSilenced = prefs.getBoolean("is_silenced", false)
+        val isGeoSilenced = prefs.getBoolean("geo_silenced", false)
 
         if (isSilenced) {
-            val volumeService = VolumeControlService(context)
             val windowEndMs = prefs.getLong("window_end_ms", 0)
 
             if (windowEndMs > 0 && System.currentTimeMillis() > windowEndMs) {
-                Log.d(TAG, "Silence window expired during reboot — restoring")
-                val savedState = mapOf(
-                    "ringerMode" to prefs.getInt("saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
-                    "interruptionFilter" to prefs.getInt("saved_interruption_filter", android.app.NotificationManager.INTERRUPTION_FILTER_ALL),
-                    "ringVolume" to prefs.getInt("saved_ring_volume", 5),
-                    "notificationVolume" to prefs.getInt("saved_notification_volume", 5)
-                )
-                val success = volumeService.restoreState(savedState)
-                if (success) {
+                // Prayer window expired — but check if geo is also active
+                if (isGeoSilenced) {
+                    // Geo still active — just clear prayer state, stay silent
+                    Log.d(TAG, "Prayer expired but geo still active — clearing prayer only")
                     prefs.edit()
                         .putBoolean("is_silenced", false)
-                        .putBoolean("user_overridden", false)
                         .remove("current_prayer")
                         .remove("silenced_at")
                         .remove("window_end_ms")
-                        .remove("saved_ringer_mode")
-                        .remove("saved_interruption_filter")
-                        .remove("saved_ring_volume")
-                        .remove("saved_notification_volume")
-                        .remove("saved_alarm_volume")
-                        .remove("saved_media_volume")
-                        .remove("saved_captured_at")
-                        .remove("saved_change_token")
                         .commit()
-                    Log.d(TAG, "Boot restore successful")
                 } else {
-                    Log.e(TAG, "Boot restore FAILED")
+                    // Nothing else keeping it silent — restore
+                    Log.d(TAG, "Prayer expired, no geo — restoring")
+                    val volumeService = VolumeControlService(context)
+                    val savedState = mapOf(
+                        "ringerMode" to prefs.getInt("saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
+                        "interruptionFilter" to prefs.getInt("saved_interruption_filter", android.app.NotificationManager.INTERRUPTION_FILTER_ALL),
+                        "ringVolume" to prefs.getInt("saved_ring_volume", 5),
+                        "notificationVolume" to prefs.getInt("saved_notification_volume", 5)
+                    )
+                    val success = volumeService.restoreState(savedState)
+                    if (success) {
+                        prefs.edit()
+                            .putBoolean("is_silenced", false)
+                            .putBoolean("user_overridden", false)
+                            .remove("current_prayer")
+                            .remove("silenced_at")
+                            .remove("window_end_ms")
+                            .remove("saved_ringer_mode")
+                            .remove("saved_interruption_filter")
+                            .remove("saved_ring_volume")
+                            .remove("saved_notification_volume")
+                            .remove("saved_alarm_volume")
+                            .remove("saved_media_volume")
+                            .remove("saved_captured_at")
+                            .remove("saved_change_token")
+                            .commit()
+                        Log.d(TAG, "Boot restore successful")
+                    }
                 }
             } else if (windowEndMs > 0) {
                 Log.d(TAG, "Still in silence window — re-scheduling restore alarm")

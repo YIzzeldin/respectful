@@ -90,7 +90,7 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
 
     await ref.read(savedMasjidsProvider.notifier).add(masjid);
     await ref.read(eventLogServiceProvider).log(
-          EventType.masjidModeOn,
+          EventType.info,
           'Saved masjid from map: $name',
         );
 
