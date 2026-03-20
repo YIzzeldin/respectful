@@ -60,22 +60,6 @@ class VolumeControlService(private val context: Context) {
     }
 
     /**
-     * Apply priority silence: RINGER_MODE_SILENT + INTERRUPTION_FILTER_PRIORITY.
-     * Allows alarms and starred contacts through.
-     */
-    fun applyPrioritySilence(): Boolean {
-        if (!hasDndPermission()) return false
-
-        audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
-
-        notificationManager.setInterruptionFilter(
-            NotificationManager.INTERRUPTION_FILTER_PRIORITY
-        )
-
-        return true
-    }
-
-    /**
      * Restore phone to the state captured before silencing.
      */
     fun restoreState(state: Map<String, Any>): Boolean {

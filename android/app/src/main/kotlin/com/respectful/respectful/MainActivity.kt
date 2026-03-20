@@ -26,10 +26,6 @@ class MainActivity : FlutterActivity() {
                     val success = volumeService.applySilence()
                     result.success(success)
                 }
-                "applyPrioritySilence" -> {
-                    val success = volumeService.applyPrioritySilence()
-                    result.success(success)
-                }
                 "restoreState" -> {
                     @Suppress("UNCHECKED_CAST")
                     val state = call.arguments as? Map<String, Any>

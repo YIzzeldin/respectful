@@ -282,7 +282,7 @@ class MasjidScreen extends ConsumerWidget {
 
       await ref.read(savedMasjidsProvider.notifier).add(masjid);
       await ref.read(eventLogServiceProvider).log(
-            EventType.masjidModeOn,
+            EventType.info,
             'Saved masjid: $name (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})',
           );
 
