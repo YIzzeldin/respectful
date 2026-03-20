@@ -514,29 +514,17 @@ class MasjidScreen extends ConsumerWidget {
       final controller = ref.read(volumeControllerProvider);
       final remaining = ref.read(savedMasjidsProvider);
 
-      final wasGeoSilenced = await controller.isGeoSilenced();
-
       if (remaining.isEmpty) {
         // No masjids left — force clear everything
         await controller.forceRestoreNormal();
-      } else if (wasGeoSilenced) {
-        // Check if we're near the DELETED masjid (meaning it was the
-        // one keeping us silenced) or near a remaining one
+      } else {
+        // Get GPS to decide if we should stay silenced
         if (!context.mounted) return;
         final position = await GpsRetryService.getPositionWithRetry(context: context);
         if (position != null) {
           final locationService = ref.read(locationServiceProvider);
 
-          // Check if near the deleted masjid
-          final wasNearDeleted = !locationService.hasMovedSignificantly(
-            storedLat: masjid.latitude,
-            storedLng: masjid.longitude,
-            currentLat: position.latitude,
-            currentLng: position.longitude,
-            thresholdKm: 0.2,
-          );
-
-          // Check if near any remaining masjid
+          // Are we near any REMAINING masjid?
           final nearRemaining = remaining.any((m) =>
             !locationService.hasMovedSignificantly(
               storedLat: m.latitude,
@@ -547,14 +535,19 @@ class MasjidScreen extends ConsumerWidget {
             ),
           );
 
-          if (wasNearDeleted && !nearRemaining) {
-            // Was at the deleted masjid, not near any other — clear
-            await controller.clearGeoSilence();
+          if (!nearRemaining) {
+            // Not near any remaining masjid — clear silence
+            // Use forceRestoreNormal to hard-clear ALL native state
+            // (including stale active_masjid_geofences from old geofence events)
+            await controller.forceRestoreNormal();
           }
           // If near remaining — do nothing, stay silenced
-          // If was NOT near deleted — do nothing, silence is from another source
         }
       }
+
+      // Wait for geofence re-registration to settle before refreshing UI
+      // (autoGeofenceProvider re-runs async after savedMasjidsProvider changes)
+      await Future.delayed(const Duration(seconds: 2));
 
       // Force UI refresh
       final _ = await ref.refresh(geoSilencedProvider.future);
