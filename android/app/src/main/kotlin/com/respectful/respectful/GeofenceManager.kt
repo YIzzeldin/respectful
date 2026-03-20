@@ -70,8 +70,12 @@ object GeofenceManager {
                 .build()
         }
 
+        // NO initial trigger — only fire on actual boundary crossing.
+        // GPS calibration (Mode 2) handles "already inside" detection.
+        // INITIAL_TRIGGER_ENTER caused phantom re-entries during
+        // re-registration after delete, re-setting geo_silenced.
         val request = GeofencingRequest.Builder()
-            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER or GeofencingRequest.INITIAL_TRIGGER_DWELL)
+            .setInitialTrigger(0) // no initial trigger
             .addGeofences(geofenceList)
             .build()
 
