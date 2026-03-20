@@ -233,20 +233,9 @@ class HomeScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                GestureDetector(
-                  onTap: () async {
-                    await ref.read(volumeControllerProvider).clearGeoSilence();
-                    ref.invalidate(geoSilencedProvider);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.close, color: Colors.white, size: 16),
-                  ),
-                ),
+                // No close button — the banner is factual ("you are here").
+                // Use the master OFF toggle to stop silencing.
+                const Icon(Icons.mosque_rounded, color: Colors.white54, size: 18),
               ],
             ),
           );
