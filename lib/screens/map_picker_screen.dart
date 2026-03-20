@@ -118,8 +118,8 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
 
     await ref.read(savedMasjidsProvider.notifier).add(masjid);
     await ref.read(eventLogServiceProvider).log(
-          EventType.info,
-          'Saved masjid from map: $name',
+          EventType.masjidAdded,
+          'Added masjid from map: $name',
         );
 
     // Only check if NOT already silenced

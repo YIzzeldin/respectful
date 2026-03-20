@@ -77,6 +77,8 @@ enum EventType {
   masjidModeOff,
   geofenceEnter,
   geofenceExit,
+  masjidAdded,
+  masjidDeleted,
   info,
 }
 
@@ -135,6 +137,10 @@ class EventEntry {
         return '📍';
       case EventType.geofenceExit:
         return '🚶';
+      case EventType.masjidAdded:
+        return '➕';
+      case EventType.masjidDeleted:
+        return '🗑️';
       case EventType.info:
         return 'ℹ️';
     }

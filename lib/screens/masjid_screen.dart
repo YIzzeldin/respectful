@@ -310,7 +310,7 @@ class MasjidScreen extends ConsumerWidget {
 
       await ref.read(savedMasjidsProvider.notifier).add(masjid);
       await ref.read(eventLogServiceProvider).log(
-            EventType.info,
+            EventType.masjidAdded,
             'Saved masjid: $name (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})',
           );
 
@@ -499,16 +499,22 @@ class MasjidScreen extends ConsumerWidget {
       ),
     );
     if (confirm == true) {
+      await ref.read(eventLogServiceProvider).log(
+        EventType.masjidDeleted,
+        'Deleted masjid: ${masjid.name}',
+      );
       await ref.read(savedMasjidsProvider.notifier).remove(masjid.id);
 
       final controller = ref.read(volumeControllerProvider);
       final remaining = ref.read(savedMasjidsProvider);
       final wasGeoSilenced = await controller.isGeoSilenced();
 
+      final eventLog = ref.read(eventLogServiceProvider);
+
       if (!wasGeoSilenced) {
-        // Not silenced — just delete, nothing to do
+        await eventLog.log(EventType.info, 'Delete: not silenced — no action needed');
       } else if (remaining.isEmpty) {
-        // No masjids left — clear everything
+        await eventLog.log(EventType.restored, 'Delete: no masjids left — restoring phone');
         await controller.forceRestoreNormal();
       } else {
         // Silenced + remaining masjids exist. Quick GPS check (single
@@ -532,7 +538,6 @@ class MasjidScreen extends ConsumerWidget {
           );
 
           if (wasNearDeleted) {
-            // We were at the deleted masjid — check remaining
             final nearRemaining = remaining.any((m) =>
               !locationService.hasMovedSignificantly(
                 storedLat: m.latitude,
@@ -543,15 +548,16 @@ class MasjidScreen extends ConsumerWidget {
               ),
             );
             if (!nearRemaining) {
-              // Not near any remaining — clear silence
+              await eventLog.log(EventType.restored, 'Delete: was at deleted masjid, not near remaining — restoring');
               await controller.forceRestoreNormal();
+            } else {
+              await eventLog.log(EventType.info, 'Delete: was at deleted masjid but near another — staying silent');
             }
-            // Near remaining → stay silenced, no disruption
+          } else {
+            await eventLog.log(EventType.info, 'Delete: deleted a distant masjid — no change');
           }
-          // Not near deleted → it was a distant one, no disruption
         } catch (_) {
-          // GPS failed — conservative: leave silenced.
-          // GPS calibration (Mode 2) will correct within minutes.
+          await eventLog.log(EventType.info, 'Delete: GPS failed — leaving silenced, calibration will correct');
         }
       }
 
