@@ -31,19 +31,28 @@ class VolumeControlService(private val context: Context) {
     }
 
     /**
-     * Apply total silence: RINGER_MODE_SILENT + INTERRUPTION_FILTER_NONE.
+     * Apply silence based on user's configured silence level.
+     * Reads from Flutter SharedPreferences to determine total vs priority.
      * Returns true if successful, false if missing DND permission.
      */
     fun applySilence(): Boolean {
         if (!hasDndPermission()) return false
 
-        // Set ringer to silent (belt-and-suspenders with DND)
         audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
 
-        // Apply total DND — blocks everything
-        notificationManager.setInterruptionFilter(
-            NotificationManager.INTERRUPTION_FILTER_NONE
-        )
+        // Check user's silence level preference
+        val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", android.content.Context.MODE_PRIVATE)
+        val silenceLevel = flutterPrefs.getString("flutter.silence_level", "totalSilence")
+
+        if (silenceLevel == "prioritySilence") {
+            notificationManager.setInterruptionFilter(
+                NotificationManager.INTERRUPTION_FILTER_PRIORITY
+            )
+        } else {
+            notificationManager.setInterruptionFilter(
+                NotificationManager.INTERRUPTION_FILTER_NONE
+            )
+        }
 
         return true
     }
