@@ -501,12 +501,59 @@ class MasjidScreen extends ConsumerWidget {
     if (confirm == true) {
       await ref.read(savedMasjidsProvider.notifier).remove(masjid.id);
 
-      // Always clear geo_silenced immediately on delete.
-      // If the user is still near a remaining masjid, the GPS calibration
-      // provider (Mode 2) will re-silence within its configured interval.
-      // This guarantees the UI updates instantly — no stuck state.
       final controller = ref.read(volumeControllerProvider);
-      await controller.forceRestoreNormal();
+      final remaining = ref.read(savedMasjidsProvider);
+      final wasGeoSilenced = await controller.isGeoSilenced();
+
+      if (!wasGeoSilenced) {
+        // Not silenced — just delete, nothing to do
+      } else if (remaining.isEmpty) {
+        // No masjids left — clear everything
+        await controller.forceRestoreNormal();
+      } else {
+        // Silenced + remaining masjids exist. Quick GPS check (single
+        // attempt, 5s timeout) to decide: was the deleted masjid the
+        // one we're at? If so, are we near any remaining?
+        try {
+          final position = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 5),
+            ),
+          );
+          final locationService = ref.read(locationServiceProvider);
+
+          final wasNearDeleted = !locationService.hasMovedSignificantly(
+            storedLat: masjid.latitude,
+            storedLng: masjid.longitude,
+            currentLat: position.latitude,
+            currentLng: position.longitude,
+            thresholdKm: 0.2,
+          );
+
+          if (wasNearDeleted) {
+            // We were at the deleted masjid — check remaining
+            final nearRemaining = remaining.any((m) =>
+              !locationService.hasMovedSignificantly(
+                storedLat: m.latitude,
+                storedLng: m.longitude,
+                currentLat: position.latitude,
+                currentLng: position.longitude,
+                thresholdKm: 0.2,
+              ),
+            );
+            if (!nearRemaining) {
+              // Not near any remaining — clear silence
+              await controller.forceRestoreNormal();
+            }
+            // Near remaining → stay silenced, no disruption
+          }
+          // Not near deleted → it was a distant one, no disruption
+        } catch (_) {
+          // GPS failed — conservative: leave silenced.
+          // GPS calibration (Mode 2) will correct within minutes.
+        }
+      }
 
       // Force UI refresh
       final _ = await ref.refresh(geoSilencedProvider.future);
