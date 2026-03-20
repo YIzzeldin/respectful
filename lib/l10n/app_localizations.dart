@@ -227,7 +227,7 @@ class AppLocalizations {
   String get resetToDefaults => isArabic
       ? 'إعادة للافتراضي'
       : 'Reset to defaults';
-  String totalTime(int mins) => isArabic ? 'المجموع: ${mins}د' : 'Total: ${mins}m';
+  String totalTime(int mins) => isArabic ? 'المجموع: $minsد' : 'Total: ${mins}m';
 
   // --- Troubleshooting ---
   String get permissionStatus => isArabic ? 'حالة الصلاحيات' : 'Permission Status';

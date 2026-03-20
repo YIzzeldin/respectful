@@ -476,7 +476,8 @@ class MasjidScreen extends ConsumerWidget {
       );
       if (!stillInside) {
         await controller.clearGeoSilence();
-        ref.invalidate(geoSilencedProvider);
+        final _ = await ref.refresh(geoSilencedProvider.future);
+        ref.invalidate(activeMasjidGeofencesProvider);
       }
     } else {
       // All retries exhausted — clear to avoid stuck state
@@ -489,7 +490,8 @@ class MasjidScreen extends ConsumerWidget {
         );
       }
       await controller.clearGeoSilence();
-      ref.invalidate(geoSilencedProvider);
+      final _ = await ref.refresh(geoSilencedProvider.future);
+      ref.invalidate(activeMasjidGeofencesProvider);
     }
   }
 
@@ -553,12 +555,14 @@ class MasjidScreen extends ConsumerWidget {
       if (remaining.isEmpty) {
         // No masjids left — force clear everything
         await controller.forceRestoreNormal();
-        ref.invalidate(geoSilencedProvider);
+        final _ = await ref.refresh(geoSilencedProvider.future);
+        ref.invalidate(activeMasjidGeofencesProvider);
       } else {
         // Still have masjids — check if near any remaining one
         final isGeoSilenced = await controller.isGeoSilenced();
+        if (!context.mounted) return;
         if (isGeoSilenced) {
-          _checkLocationAndClearIfNeeded(context, ref, remaining);
+          await _checkLocationAndClearIfNeeded(context, ref, remaining);
         }
       }
     }
