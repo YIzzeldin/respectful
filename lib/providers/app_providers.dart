@@ -441,14 +441,13 @@ class MasjidModeNotifier extends StateNotifier<MasjidModeState> {
     );
   }
 
-  /// Deactivate masjid mode — restore phone state, clear native flags, reschedule alarms.
+  /// Deactivate masjid mode — clear geo silence, restore only if prayer isn't active.
   Future<void> deactivate() async {
     if (!state.isActive) return;
 
-    // Use forceRestoreNormal to clear ALL native state (geo_silenced etc.)
-    // and restore phone to normal. This is cleaner than trying to restore
-    // from the in-memory snapshot which may be stale.
-    await _volumeController.forceRestoreNormal();
+    // Clear geo silence — if prayer is active, phone stays silent.
+    // If not, restores from the geo snapshot.
+    await _volumeController.clearGeoSilence();
 
     state = const MasjidModeState();
 
