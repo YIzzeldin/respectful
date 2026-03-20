@@ -12,6 +12,7 @@ class StorageService {
   static const _keySilenceLevel = 'silence_level';
   static const _keyUsePerPrayerConfig = 'use_per_prayer_config';
   static const _keyOnboardingComplete = 'onboarding_complete';
+  static const _keyLanguageCode = 'language_code';
   static const _keyLatitude = 'latitude';
   static const _keyLongitude = 'longitude';
 
@@ -47,6 +48,7 @@ class StorageService {
       ),
       usePerPrayerConfig: _prefs.getBool(_keyUsePerPrayerConfig) ?? false,
       onboardingComplete: _prefs.getBool(_keyOnboardingComplete) ?? false,
+      languageCode: _prefs.getString(_keyLanguageCode) ?? 'en',
       latitude: _prefs.getDouble(_keyLatitude),
       longitude: _prefs.getDouble(_keyLongitude),
     );
@@ -63,6 +65,7 @@ class StorageService {
     await _prefs.setString(_keySilenceLevel, settings.silenceLevel.name);
     await _prefs.setBool(_keyUsePerPrayerConfig, settings.usePerPrayerConfig);
     await _prefs.setBool(_keyOnboardingComplete, settings.onboardingComplete);
+    await _prefs.setString(_keyLanguageCode, settings.languageCode);
     if (settings.latitude != null) {
       await _prefs.setDouble(_keyLatitude, settings.latitude!);
     } else {

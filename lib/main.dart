@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme.dart';
+import 'l10n/app_localizations.dart';
 import 'providers/app_providers.dart';
 import 'screens/app_shell.dart';
 import 'screens/onboarding_screen.dart';
@@ -40,12 +42,21 @@ class RespectfulApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
+    final locale = Locale(settings.languageCode);
 
     return MaterialApp(
       title: 'Respectful',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
+      locale: locale,
+      supportedLocales: const [Locale('en'), Locale('ar')],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: settings.onboardingComplete
           ? const SilenceEngineWatcher(
               child: LocationRefreshListener(child: AppShell()),
