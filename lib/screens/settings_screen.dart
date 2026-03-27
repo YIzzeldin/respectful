@@ -66,6 +66,79 @@ class SettingsScreen extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
+                        const Icon(Icons.radar, size: 20, color: AppColors.textSecondary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l.masjidRadius,
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                              ),
+                              Text(
+                                l.masjidRadiusDesc,
+                                style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          l.masjidRadiusValue(settings.masjidRadiusMeters),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 180,
+                          child: Slider(
+                            value: settings.masjidRadiusMeters.toDouble(),
+                            min: 100,
+                            max: 400,
+                            divisions: 12,
+                            activeColor: AppColors.primary,
+                            onChanged: (v) {
+                              ref
+                                  .read(settingsProvider.notifier)
+                                  .setMasjidRadiusMeters(v.round());
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    _ToggleRow(
+                      icon: Icons.directions_walk_rounded,
+                      label: l.passThroughProtection,
+                      subtitle: l.passThroughProtectionDesc,
+                      value: settings.requireMasjidDwellBeforeSilence,
+                      onChanged: (v) => ref
+                          .read(settingsProvider.notifier)
+                          .setRequireMasjidDwellBeforeSilence(v),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
                         const Icon(Icons.gps_fixed, size: 20, color: AppColors.textSecondary),
                         const SizedBox(width: 12),
                         Expanded(

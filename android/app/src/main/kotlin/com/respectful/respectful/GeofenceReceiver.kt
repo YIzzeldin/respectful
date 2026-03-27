@@ -40,7 +40,7 @@ class GeofenceReceiver : BroadcastReceiver() {
         when (transition) {
             Geofence.GEOFENCE_TRANSITION_ENTER,
             Geofence.GEOFENCE_TRANSITION_DWELL -> {
-                handleEnterMasjid(context, prefs, volumeService, masjidIds)
+                handleEnterMasjid(context, prefs, volumeService, masjidIds, transition)
             }
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
                 handleExitMasjid(context, prefs, volumeService, masjidIds)
@@ -53,7 +53,15 @@ class GeofenceReceiver : BroadcastReceiver() {
         prefs: android.content.SharedPreferences,
         volumeService: VolumeControlService,
         masjidIds: List<String>,
+        transition: Int,
     ) {
+        if (transition == Geofence.GEOFENCE_TRANSITION_ENTER &&
+            requiresMasjidDwellBeforeSilence(context)
+        ) {
+            Log.d(TAG, "Ignoring ENTER transition because dwell protection is enabled")
+            return
+        }
+
         // Only process masjid IDs that actually exist in the saved list.
         // Geofence re-registration can fire INITIAL_TRIGGER_ENTER with stale
         // IDs from deleted masjids — ignore those.
@@ -103,6 +111,7 @@ class GeofenceReceiver : BroadcastReceiver() {
 
         prefs.edit()
             .putBoolean("geo_silenced", true)
+            .putLong("geo_silenced_at", System.currentTimeMillis())
             .putStringSet("active_masjid_geofences", activeMasjids)
             .commit()
 
@@ -165,5 +174,10 @@ class GeofenceReceiver : BroadcastReceiver() {
                 .commit()
             Log.d(TAG, "Exited masjid(s): $masjidIds, still in: $activeMasjids")
         }
+    }
+
+    private fun requiresMasjidDwellBeforeSilence(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        return prefs.getBoolean("flutter.require_masjid_dwell_before_silence", false)
     }
 }

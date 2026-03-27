@@ -110,9 +110,19 @@ class VolumeController {
   }
 
   /// Silence phone AND mark geo_silenced=true in native SharedPreferences.
-  /// Use when manually detecting the user is at a masjid (not via geofence event).
-  Future<bool> applySilenceForGeo() async {
-    return await _channel.invokeMethod<bool>('applySilenceForGeo') ?? false;
+  /// Pass [masjidId] to track which masjid triggered the silence.
+  Future<bool> applySilenceForGeo({String? masjidId}) async {
+    final args = <String, dynamic>{};
+    if (masjidId != null) args['masjidId'] = masjidId;
+    return await _channel.invokeMethod<bool>('applySilenceForGeo', args) ?? false;
+  }
+
+  /// Clear geo silence for a specific deleted masjid.
+  /// Returns: "not_silenced", "not_at_deleted", "still_at_other", or "restored".
+  Future<String> clearGeoSilenceForMasjid(String masjidId) async {
+    return await _channel.invokeMethod<String>('clearGeoSilenceForMasjid', {
+      'masjidId': masjidId,
+    }) ?? 'not_silenced';
   }
 
   /// Clear geo silence only — restores phone if prayer is not active.
@@ -134,6 +144,11 @@ class VolumeController {
   /// Check if phone is currently silenced by a geofence (native side).
   Future<bool> isGeoSilenced() async {
     return await _channel.invokeMethod<bool>('isGeoSilenced') ?? false;
+  }
+
+  /// Get the timestamp when geo silence started (milliseconds since epoch).
+  Future<int> getGeoSilencedAt() async {
+    return await _channel.invokeMethod<int>('getGeoSilencedAt') ?? 0;
   }
 
   /// Get the IDs of masjids currently inside geofence.

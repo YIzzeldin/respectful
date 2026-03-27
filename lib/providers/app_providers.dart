@@ -142,6 +142,16 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     await updateSettings(state.copyWith(silenceLevel: level));
   }
 
+  Future<void> setMasjidRadiusMeters(int radiusMeters) async {
+    await updateSettings(state.copyWith(masjidRadiusMeters: radiusMeters));
+  }
+
+  Future<void> setRequireMasjidDwellBeforeSilence(bool enabled) async {
+    await updateSettings(
+      state.copyWith(requireMasjidDwellBeforeSilence: enabled),
+    );
+  }
+
   Future<void> setLocation(double lat, double lng) async {
     await updateSettings(state.copyWith(latitude: lat, longitude: lng));
   }
@@ -369,19 +379,21 @@ final gpsCalibrationProvider = FutureProvider<void>((ref) async {
     final position = await locationService.getCurrentPosition();
     if (position == null) return;
 
-    final nearAny = masjids.any((m) =>
-      !locationService.hasMovedSignificantly(
-        storedLat: m.latitude,
+    // Find which masjid we're near (if any)
+    final nearMasjid = masjids.cast<SavedMasjid?>().firstWhere(
+      (m) => !locationService.hasMovedSignificantly(
+        storedLat: m!.latitude,
         storedLng: m.longitude,
         currentLat: position.latitude,
         currentLng: position.longitude,
-        thresholdKm: 0.2,
+        thresholdKm: settings.masjidRadiusKm,
       ),
+      orElse: () => null,
     );
 
-    if (nearAny) {
+    if (nearMasjid != null) {
       // GPS says we're at a masjid but native missed it — silence
-      await controller.applySilenceForGeo();
+      await controller.applySilenceForGeo(masjidId: nearMasjid.id);
       ref.invalidate(geoSilencedProvider);
     }
   } catch (_) {

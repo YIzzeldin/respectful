@@ -143,14 +143,12 @@ class MainActivity : FlutterActivity() {
                     result.success(granted)
                 }
                 "applySilenceForGeo" -> {
+                    val masjidId = call.argument<String>("masjidId")
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
                     val alreadyGeo = prefs.getBoolean("geo_silenced", false)
                     val isPrayerSilenced = prefs.getBoolean("is_silenced", false)
 
                     // Only capture geo snapshot if nothing is currently silencing.
-                    // If prayer is active, the phone is already silenced — capturing
-                    // now would store a silenced state as the "restore" target.
-                    // Same guard as GeofenceReceiver.handleEnterMasjid.
                     if (!alreadyGeo && !isPrayerSilenced) {
                         val state = volumeService.captureCurrentState()
                         prefs.edit()
@@ -163,9 +161,83 @@ class MainActivity : FlutterActivity() {
 
                     val success = volumeService.applySilence()
                     if (success) {
-                        prefs.edit().putBoolean("geo_silenced", true).commit()
+                        // Track which masjid triggered this silence
+                        val activeMasjids = prefs.getStringSet("active_masjid_geofences", mutableSetOf())?.toMutableSet()
+                            ?: mutableSetOf()
+                        if (masjidId != null) {
+                            activeMasjids.add(masjidId)
+                        }
+                        prefs.edit()
+                            .putBoolean("geo_silenced", true)
+                            .putLong("geo_silenced_at", System.currentTimeMillis())
+                            .putStringSet("active_masjid_geofences", activeMasjids)
+                            .commit()
                     }
                     result.success(success)
+                }
+                "clearGeoSilenceForMasjid" -> {
+                    val masjidId = call.argument<String>("masjidId") ?: ""
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    val wasGeoSilenced = prefs.getBoolean("geo_silenced", false)
+
+                    if (!wasGeoSilenced) {
+                        // Not silenced by geo — nothing to do
+                        result.success("not_silenced")
+                        return@setMethodCallHandler
+                    }
+
+                    val activeMasjids = prefs.getStringSet("active_masjid_geofences", mutableSetOf())?.toMutableSet()
+                        ?: mutableSetOf()
+
+                    if (activeMasjids.isEmpty()) {
+                        // Active set is empty but geo_silenced is true — we don't know
+                        // which masjid caused the silence (legacy state or missed tracking).
+                        // Safe default: restore, since we can't distinguish.
+                        Log.d("Respectful", "Active set empty but geo_silenced=true — restoring on delete of $masjidId")
+                    } else {
+                        val wasInSet = activeMasjids.remove(masjidId)
+
+                        if (!wasInSet) {
+                            // Deleted masjid wasn't in the active set — distant masjid, no change
+                            result.success("not_at_deleted")
+                            return@setMethodCallHandler
+                        }
+                    }
+
+                    if (activeMasjids.isNotEmpty()) {
+                        // Still at other masjid(s) — stay silent, just update the set
+                        prefs.edit()
+                            .putStringSet("active_masjid_geofences", activeMasjids)
+                            .commit()
+                        result.success("still_at_other")
+                        return@setMethodCallHandler
+                    }
+
+                    // Was at the deleted masjid and no others — restore phone
+                    val isPrayerActive = prefs.getBoolean("is_silenced", false)
+                    if (!isPrayerActive) {
+                        val savedState = mapOf(
+                            "ringerMode" to prefs.getInt("geo_saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
+                            "interruptionFilter" to prefs.getInt("geo_saved_interruption_filter", android.app.NotificationManager.INTERRUPTION_FILTER_ALL),
+                            "ringVolume" to prefs.getInt("geo_saved_ring_volume", 5),
+                            "notificationVolume" to prefs.getInt("geo_saved_notification_volume", 5)
+                        )
+                        volumeService.restoreState(savedState)
+                        Log.d("Respectful", "Deleted active masjid $masjidId — restored phone")
+                    } else {
+                        Log.d("Respectful", "Deleted active masjid $masjidId — prayer active, keeping silent")
+                    }
+
+                    prefs.edit()
+                        .putBoolean("geo_silenced", false)
+                        .remove("active_masjid_geofences")
+                        .remove("geo_saved_ringer_mode")
+                        .remove("geo_saved_interruption_filter")
+                        .remove("geo_saved_ring_volume")
+                        .remove("geo_saved_notification_volume")
+                        .commit()
+
+                    result.success("restored")
                 }
                 "clearGeoSilence" -> {
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
@@ -242,6 +314,10 @@ class MainActivity : FlutterActivity() {
                 "isGeoSilenced" -> {
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
                     result.success(prefs.getBoolean("geo_silenced", false))
+                }
+                "getGeoSilencedAt" -> {
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    result.success(prefs.getLong("geo_silenced_at", 0))
                 }
                 "getActiveMasjidGeofences" -> {
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)

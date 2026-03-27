@@ -54,6 +54,17 @@ class AppLocalizations {
       ? 'أنت في المسجد — الهاتف صامت'
       : 'You are at a masjid — phone silenced';
 
+  // --- Silenced Screen ---
+  String get phoneSilenced => isArabic ? 'الهاتف صامت' : 'Phone Silenced';
+  String get currentlyAt => isArabic ? 'حالياً في' : 'Currently at';
+  String get activePrayer => isArabic ? 'الصلاة الحالية' : 'Active Prayer';
+  String get enteringFocus => isArabic ? 'وضع التركيز' : 'Entering Focus';
+  String get nextTransition => isArabic ? 'التالي' : 'Next Transition';
+  String get exitSilenceMode => isArabic ? 'إنهاء وضع الصمت' : 'EXIT SILENCE MODE';
+  String minutesLabel(int m) => isArabic ? '$m دقيقة' : '$m Minutes';
+  String get unknownMasjid => isArabic ? 'مسجد محفوظ' : 'Saved Masjid';
+  String get silencedFor => isArabic ? 'صامت منذ' : 'Silent For';
+
   // --- Prayer Names ---
   String get fajr => isArabic ? 'الفجر' : 'Fajr';
   String get dhuhr => isArabic ? 'الظهر' : 'Dhuhr';
@@ -118,6 +129,17 @@ class AppLocalizations {
   String get gpsCalibrationDesc => isArabic
       ? 'فحص دوري بنظام تحديد المواقع للتأكد من حالة الإصمات (يستهلك البطارية)'
       : 'Periodic GPS check to verify silence state (uses battery)';
+  String get masjidRadius => isArabic ? 'Masjid radius' : 'Masjid Radius';
+  String get masjidRadiusDesc => isArabic
+      ? 'Adjust how close you need to be before masjid silence can activate'
+      : 'How close you need to be before masjid silence can activate';
+  String masjidRadiusValue(int meters) => '$meters m';
+  String get passThroughProtection => isArabic
+      ? 'Pass-through protection'
+      : 'Pass-Through Protection';
+  String get passThroughProtectionDesc => isArabic
+      ? 'Wait for a dwell event before silencing to avoid accidental silence while passing by'
+      : 'Wait for a dwell event before silencing to avoid accidental silence while passing by';
   String gpsCalibrationInterval(int mins) => isArabic
       ? 'كل $mins دقيقة'
       : 'Every $mins minutes';
@@ -160,6 +182,7 @@ class AppLocalizations {
   String get geofenceActive => isArabic
       ? 'سياج جغرافي 200م نشط'
       : '200m geofence active';
+  String geofenceActiveWithRadius(int radiusMeters) => '${radiusMeters}m geofence active';
 
   // --- Onboarding ---
   String get getStarted => isArabic ? 'ابدأ' : 'Get Started';
@@ -217,6 +240,7 @@ class AppLocalizations {
       ? 'ستظهر الأحداث هنا عند إصمات هاتفك في المسجد أو أثناء الصلاة.'
       : 'Events will appear here when your phone is silenced at a masjid or during prayer.';
   String get today => isArabic ? 'اليوم' : 'Today';
+  String get yesterday => isArabic ? 'أمس' : 'Yesterday';
 
   // --- Common ---
   String get on => isArabic ? 'تشغيل' : 'ON';

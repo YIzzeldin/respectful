@@ -18,7 +18,7 @@ import com.google.android.gms.location.LocationServices
 object GeofenceManager {
 
     private const val TAG = "RespectfulGeofence"
-    private const val GEOFENCE_RADIUS_METERS = 200f // 200m radius
+    private const val DEFAULT_GEOFENCE_RADIUS_METERS = 200f
     private const val GEOFENCE_DWELL_MS = 30_000L   // 30 seconds dwell before triggering
 
     /**
@@ -55,11 +55,12 @@ object GeofenceManager {
         }
 
         val geofencingClient = LocationServices.getGeofencingClient(context)
+        val radiusMeters = getGeofenceRadiusMeters(context)
 
         val geofenceList = masjids.map { masjid ->
             Geofence.Builder()
                 .setRequestId(masjid.id)
-                .setCircularRegion(masjid.latitude, masjid.longitude, GEOFENCE_RADIUS_METERS)
+                .setCircularRegion(masjid.latitude, masjid.longitude, radiusMeters)
                 .setExpirationDuration(Geofence.NEVER_EXPIRE)
                 .setTransitionTypes(
                     Geofence.GEOFENCE_TRANSITION_ENTER or
@@ -116,6 +117,18 @@ object GeofenceManager {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
+    }
+
+    private fun getGeofenceRadiusMeters(context: Context): Float {
+        val prefs = context.getSharedPreferences(
+            "FlutterSharedPreferences",
+            Context.MODE_PRIVATE,
+        )
+        val radius = prefs.getInt(
+            "flutter.masjid_radius_meters",
+            DEFAULT_GEOFENCE_RADIUS_METERS.toInt(),
+        )
+        return radius.coerceIn(50, 1000).toFloat()
     }
 }
 

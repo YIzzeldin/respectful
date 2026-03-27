@@ -99,6 +99,6 @@ flutter:
 
 flutter_launcher_icons:
   android: true
-  image_path: "assets/VFY5R.png"
-  adaptive_icon_background: "#1B5E3B"
-  adaptive_icon_foreground: "assets/VFY5R.png"
+  image_path: "assets/respectful_icon.png"
+  adaptive_icon_background: "#0D3A23"
+  adaptive_icon_foreground: "assets/respectful_icon.png"

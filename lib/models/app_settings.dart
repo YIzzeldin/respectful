@@ -78,6 +78,8 @@ extension SilenceLevelDisplay on SilenceLevel {
 
 /// All app settings.
 class AppSettings {
+  static const int defaultMasjidRadiusMeters = 200;
+
   final CalculationMethodType calculationMethod;
   final TimingPreferences timingPreferences;
   /// Time-based auto-silence (silence at prayer times). OFF by default.
@@ -88,6 +90,12 @@ class AppSettings {
 
   /// GPS calibration interval in minutes (5-30). Only active when geofencing is enabled.
   final int gpsCalibrationMinutes;
+
+  /// Geofence radius used for masjid detection and duplicate checks.
+  final int masjidRadiusMeters;
+
+  /// When enabled, wait for a geofence dwell event before silencing.
+  final bool requireMasjidDwellBeforeSilence;
 
   final SilenceLevel silenceLevel;
   final bool usePerPrayerConfig;
@@ -102,6 +110,8 @@ class AppSettings {
     this.timeBasedSilenceEnabled = false,
     this.geofenceSilenceEnabled = true,
     this.gpsCalibrationMinutes = 5,
+    this.masjidRadiusMeters = defaultMasjidRadiusMeters,
+    this.requireMasjidDwellBeforeSilence = false,
     this.silenceLevel = SilenceLevel.totalSilence,
     this.usePerPrayerConfig = false,
     this.onboardingComplete = false,
@@ -115,6 +125,7 @@ class AppSettings {
       );
 
   bool get hasLocation => latitude != null && longitude != null;
+  double get masjidRadiusKm => masjidRadiusMeters / 1000.0;
 
   AppSettings copyWith({
     CalculationMethodType? calculationMethod,
@@ -122,6 +133,8 @@ class AppSettings {
     bool? timeBasedSilenceEnabled,
     bool? geofenceSilenceEnabled,
     int? gpsCalibrationMinutes,
+    int? masjidRadiusMeters,
+    bool? requireMasjidDwellBeforeSilence,
     SilenceLevel? silenceLevel,
     bool? usePerPrayerConfig,
     bool? onboardingComplete,
@@ -135,6 +148,8 @@ class AppSettings {
         timeBasedSilenceEnabled: timeBasedSilenceEnabled ?? this.timeBasedSilenceEnabled,
         geofenceSilenceEnabled: geofenceSilenceEnabled ?? this.geofenceSilenceEnabled,
         gpsCalibrationMinutes: gpsCalibrationMinutes ?? this.gpsCalibrationMinutes,
+        masjidRadiusMeters: masjidRadiusMeters ?? this.masjidRadiusMeters,
+        requireMasjidDwellBeforeSilence: requireMasjidDwellBeforeSilence ?? this.requireMasjidDwellBeforeSilence,
         silenceLevel: silenceLevel ?? this.silenceLevel,
         usePerPrayerConfig: usePerPrayerConfig ?? this.usePerPrayerConfig,
         onboardingComplete: onboardingComplete ?? this.onboardingComplete,
