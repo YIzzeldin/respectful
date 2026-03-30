@@ -195,7 +195,7 @@ class GeoExitTrackingService : Service() {
             .remove("geo_saved_interruption_filter")
             .remove("geo_saved_ring_volume")
             .remove("geo_saved_notification_volume")
-            .apply()
+            .commit()
     }
 
     private fun nearestMasjidDistanceMeters(

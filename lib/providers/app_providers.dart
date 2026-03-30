@@ -15,7 +15,7 @@ import '../services/volume_controller.dart';
 import '../models/saved_masjid.dart';
 
 const _geofenceRecoveryPolicy = GeofenceRecoveryPolicy();
-int _gpsOutsideCalibrationStreak = 0;
+int _gpsExitRecoveryOutsideStreak = 0;
 
 class _NearestMasjidMatch {
   const _NearestMasjidMatch({
@@ -437,8 +437,6 @@ final gpsCalibrationProvider = FutureProvider<void>((ref) async {
     if (nearest == null) return;
     final nearMasjid = nearest.masjid;
 
-    _gpsOutsideCalibrationStreak = 0;
-
     if (_geofenceRecoveryPolicy.shouldRepairEnter(
       nearestDistanceMeters: nearest.distanceMeters,
       radiusMeters: settings.masjidRadiusMeters,
@@ -470,20 +468,20 @@ final geoExitRecoveryProvider = FutureProvider<void>((ref) async {
   ref.watch(_geoExitRecoveryTickProvider);
   final settings = ref.read(settingsProvider);
   if (!settings.geofenceSilenceEnabled) {
-    _gpsOutsideCalibrationStreak = 0;
+    _gpsExitRecoveryOutsideStreak = 0;
     return;
   }
 
   final masjids = ref.read(savedMasjidsProvider);
   if (masjids.isEmpty) {
-    _gpsOutsideCalibrationStreak = 0;
+    _gpsExitRecoveryOutsideStreak = 0;
     return;
   }
 
   final controller = ref.read(volumeControllerProvider);
   final nativeGeoSilenced = await controller.isGeoSilenced();
   if (!nativeGeoSilenced) {
-    _gpsOutsideCalibrationStreak = 0;
+    _gpsExitRecoveryOutsideStreak = 0;
     return;
   }
 
@@ -505,19 +503,19 @@ final geoExitRecoveryProvider = FutureProvider<void>((ref) async {
       radiusMeters: settings.masjidRadiusMeters,
     );
     if (!clearlyOutside) {
-      _gpsOutsideCalibrationStreak = 0;
+      _gpsExitRecoveryOutsideStreak = 0;
       return;
     }
 
-    _gpsOutsideCalibrationStreak += 1;
-    if (_gpsOutsideCalibrationStreak <
+    _gpsExitRecoveryOutsideStreak += 1;
+    if (_gpsExitRecoveryOutsideStreak <
         GeofenceRecoveryPolicy.exitChecksBeforeRestore) {
       return;
     }
 
     final cleared = await controller.clearGeoSilence();
     if (cleared) {
-      _gpsOutsideCalibrationStreak = 0;
+      _gpsExitRecoveryOutsideStreak = 0;
       ref.invalidate(geoSilencedProvider);
       ref.invalidate(activeMasjidGeofencesProvider);
       final eventLog = ref.read(eventLogServiceProvider);

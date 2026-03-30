@@ -144,8 +144,8 @@ class AppLocalizations {
       ? 'اكتشاف خروج أسرع'
       : 'Faster Exit Detection';
   String get fasterExitDetectionDesc => isArabic
-      ? 'يشغّل تتبع موقع مؤقت مع إشعار دائم فقط أثناء صمت المسجد لتحسين الاستعادة عند المغادرة'
-      : 'Uses a temporary foreground location notification only while masjid silence is active to restore faster when you leave';
+      ? 'يشغّل تتبع موقع مؤقت مع إشعار دائم فقط أثناء صمت المسجد لتحسين الاستعادة عند المغادرة، ويستهلك بطارية أكثر'
+      : 'Uses a temporary foreground location notification only while masjid silence is active to restore faster when you leave, and uses more battery';
   String gpsCalibrationInterval(int mins) => isArabic
       ? 'كل $mins دقيقة'
       : 'Every $mins minutes';
