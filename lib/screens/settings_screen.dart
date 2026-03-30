@@ -175,6 +175,23 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
+                    const Divider(height: 24),
+                    _ToggleRow(
+                      icon: Icons.flash_on_rounded,
+                      label: l.fasterExitDetection,
+                      subtitle: l.fasterExitDetectionDesc,
+                      value: settings.fastGeoExitTrackingEnabled,
+                      onChanged: (v) {
+                        () async {
+                          await ref
+                              .read(settingsProvider.notifier)
+                              .setFastGeoExitTrackingEnabled(v);
+                          await ref
+                              .read(volumeControllerProvider)
+                              .syncGeoExitTracking();
+                        }();
+                      },
+                    ),
                   ],
                 ),
               ),

@@ -156,4 +156,10 @@ class VolumeController {
     final result = await _channel.invokeMethod<List>('getActiveMasjidGeofences');
     return result?.cast<String>() ?? [];
   }
+
+  /// Sync the optional fast exit tracking foreground service with current
+  /// geofence state and settings.
+  Future<void> syncGeoExitTracking() async {
+    await _channel.invokeMethod('syncGeoExitTracking');
+  }
 }

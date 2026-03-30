@@ -18,8 +18,9 @@ import com.google.android.gms.location.LocationServices
 object GeofenceManager {
 
     private const val TAG = "RespectfulGeofence"
-    private const val DEFAULT_GEOFENCE_RADIUS_METERS = 200f
+    private const val DEFAULT_GEOFENCE_RADIUS_METERS = 150f
     private const val GEOFENCE_DWELL_MS = 30_000L   // 30 seconds dwell before triggering
+    private const val GEOFENCE_NOTIFICATION_RESPONSIVENESS_MS = 30_000
 
     /**
      * Register geofences for a list of masjid locations.
@@ -67,6 +68,9 @@ object GeofenceManager {
                     Geofence.GEOFENCE_TRANSITION_DWELL or
                     Geofence.GEOFENCE_TRANSITION_EXIT
                 )
+                // Ask Android to deliver enter/exit callbacks promptly instead of
+                // leaving responsiveness entirely to the default batching policy.
+                .setNotificationResponsiveness(GEOFENCE_NOTIFICATION_RESPONSIVENESS_MS)
                 .setLoiteringDelay(GEOFENCE_DWELL_MS.toInt())
                 .build()
         }

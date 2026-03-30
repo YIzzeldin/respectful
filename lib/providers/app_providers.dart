@@ -4,6 +4,7 @@ import '../models/app_settings.dart';
 import '../models/prayer_day.dart';
 import '../models/silence_window.dart';
 import '../services/event_log_service.dart';
+import '../services/geofence_recovery_policy.dart';
 import '../services/prayer_calculator.dart';
 import '../services/silence_scheduler.dart';
 import '../services/silence_window_calculator.dart';
@@ -13,8 +14,50 @@ import '../services/masjid_storage_service.dart';
 import '../services/volume_controller.dart';
 import '../models/saved_masjid.dart';
 
-const int _gpsOutsideChecksBeforeRestore = 2;
+const _geofenceRecoveryPolicy = GeofenceRecoveryPolicy();
 int _gpsOutsideCalibrationStreak = 0;
+
+class _NearestMasjidMatch {
+  const _NearestMasjidMatch({
+    required this.masjid,
+    required this.distanceMeters,
+  });
+
+  final SavedMasjid masjid;
+  final double distanceMeters;
+}
+
+Stream<DateTime> _periodicImmediate(Duration interval) async* {
+  yield DateTime.now();
+  yield* Stream.periodic(interval, (_) => DateTime.now());
+}
+
+_NearestMasjidMatch? _nearestMasjidMatch({
+  required List<SavedMasjid> masjids,
+  required LocationService locationService,
+  required double latitude,
+  required double longitude,
+}) {
+  _NearestMasjidMatch? nearest;
+
+  for (final masjid in masjids) {
+    final distanceMeters = locationService.distanceMetersBetween(
+      masjid.latitude,
+      masjid.longitude,
+      latitude,
+      longitude,
+    );
+
+    if (nearest == null || distanceMeters < nearest.distanceMeters) {
+      nearest = _NearestMasjidMatch(
+        masjid: masjid,
+        distanceMeters: distanceMeters,
+      );
+    }
+  }
+
+  return nearest;
+}
 
 // --- Singleton services ---
 
@@ -152,6 +195,12 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setRequireMasjidDwellBeforeSilence(bool enabled) async {
     await updateSettings(
       state.copyWith(requireMasjidDwellBeforeSilence: enabled),
+    );
+  }
+
+  Future<void> setFastGeoExitTrackingEnabled(bool enabled) async {
+    await updateSettings(
+      state.copyWith(fastGeoExitTrackingEnabled: enabled),
     );
   }
 
@@ -359,11 +408,66 @@ final geoSilencedProvider = FutureProvider<bool>((ref) async {
 final _gpsCalibrationTickProvider = StreamProvider<DateTime>((ref) {
   final settings = ref.watch(settingsProvider);
   final minutes = settings.gpsCalibrationMinutes.clamp(1, 30);
-  return Stream.periodic(Duration(minutes: minutes), (_) => DateTime.now());
+  return _periodicImmediate(Duration(minutes: minutes));
 });
 
 final gpsCalibrationProvider = FutureProvider<void>((ref) async {
-  ref.watch(_gpsCalibrationTickProvider); // tick at configured interval
+  ref.watch(_gpsCalibrationTickProvider);
+  final settings = ref.read(settingsProvider);
+  if (!settings.geofenceSilenceEnabled) return;
+
+  final masjids = ref.read(savedMasjidsProvider);
+  if (masjids.isEmpty) return;
+
+  final controller = ref.read(volumeControllerProvider);
+  final nativeGeoSilenced = await controller.isGeoSilenced();
+  if (nativeGeoSilenced) return;
+
+  try {
+    final locationService = ref.read(locationServiceProvider);
+    final position = await locationService.getCurrentPosition();
+    if (position == null) return;
+
+    final nearest = _nearestMasjidMatch(
+      masjids: masjids,
+      locationService: locationService,
+      latitude: position.latitude,
+      longitude: position.longitude,
+    );
+    if (nearest == null) return;
+    final nearMasjid = nearest.masjid;
+
+    _gpsOutsideCalibrationStreak = 0;
+
+    if (_geofenceRecoveryPolicy.shouldRepairEnter(
+      nearestDistanceMeters: nearest.distanceMeters,
+      radiusMeters: settings.masjidRadiusMeters,
+    )) {
+      // GPS says we're at a masjid but native missed it; silence now.
+      await controller.applySilenceForGeo(masjidId: nearMasjid.id);
+      ref.invalidate(geoSilencedProvider);
+      ref.invalidate(activeMasjidGeofencesProvider);
+      final eventLog = ref.read(eventLogServiceProvider);
+      await eventLog.log(
+        EventType.geofenceEnter,
+        'GPS repair detected masjid presence - phone silenced',
+      );
+    }
+  } catch (_) {
+    // GPS failed; do nothing and try again on the next calibration tick.
+  }
+});
+
+final _geoExitRecoveryTickProvider = StreamProvider<DateTime>((ref) {
+  final settings = ref.watch(settingsProvider);
+  if (!settings.geofenceSilenceEnabled) {
+    return const Stream<DateTime>.empty();
+  }
+  return _periodicImmediate(GeofenceRecoveryPolicy.exitCheckInterval);
+});
+
+final geoExitRecoveryProvider = FutureProvider<void>((ref) async {
+  ref.watch(_geoExitRecoveryTickProvider);
   final settings = ref.read(settingsProvider);
   if (!settings.geofenceSilenceEnabled) {
     _gpsOutsideCalibrationStreak = 0;
@@ -378,72 +482,52 @@ final gpsCalibrationProvider = FutureProvider<void>((ref) async {
 
   final controller = ref.read(volumeControllerProvider);
   final nativeGeoSilenced = await controller.isGeoSilenced();
+  if (!nativeGeoSilenced) {
+    _gpsOutsideCalibrationStreak = 0;
+    return;
+  }
 
-  // GPS acts as a self-healing path for both missed enter and missed exit.
   try {
     final locationService = ref.read(locationServiceProvider);
     final position = await locationService.getCurrentPosition();
     if (position == null) return;
 
-    SavedMasjid? nearMasjid;
-    double? nearestDistanceMeters;
-    for (final masjid in masjids) {
-      final distanceMeters = locationService.distanceMetersBetween(
-        masjid.latitude,
-        masjid.longitude,
-        position.latitude,
-        position.longitude,
-      );
+    final nearest = _nearestMasjidMatch(
+      masjids: masjids,
+      locationService: locationService,
+      latitude: position.latitude,
+      longitude: position.longitude,
+    );
+    if (nearest == null) return;
 
-      if (nearestDistanceMeters == null || distanceMeters < nearestDistanceMeters) {
-        nearestDistanceMeters = distanceMeters;
-      }
-
-      if (distanceMeters <= settings.masjidRadiusMeters) {
-        nearMasjid = masjid;
-        break;
-      }
-    }
-
-    if (nativeGeoSilenced) {
-      if (nearMasjid != null) {
-        _gpsOutsideCalibrationStreak = 0;
-        return;
-      }
-
-      final radiusMeters = settings.masjidRadiusMeters.toDouble();
-      final nearest = nearestDistanceMeters ?? double.infinity;
-      final immediateRestoreBufferMeters =
-          radiusMeters * 0.15 < 25.0 ? 25.0 : radiusMeters * 0.15;
-      final clearlyOutside = nearest > radiusMeters + immediateRestoreBufferMeters;
-      _gpsOutsideCalibrationStreak += 1;
-
-      if (clearlyOutside ||
-          _gpsOutsideCalibrationStreak >= _gpsOutsideChecksBeforeRestore) {
-        final cleared = await controller.clearGeoSilence();
-        if (cleared) {
-          _gpsOutsideCalibrationStreak = 0;
-          ref.invalidate(geoSilencedProvider);
-          ref.invalidate(activeMasjidGeofencesProvider);
-          final eventLog = ref.read(eventLogServiceProvider);
-          await eventLog.log(
-            EventType.restored,
-            'GPS calibration cleared stuck masjid silence after leaving the area',
-          );
-        }
-      }
+    final clearlyOutside = _geofenceRecoveryPolicy.shouldRepairExit(
+      nearestDistanceMeters: nearest.distanceMeters,
+      radiusMeters: settings.masjidRadiusMeters,
+    );
+    if (!clearlyOutside) {
+      _gpsOutsideCalibrationStreak = 0;
       return;
     }
 
-    _gpsOutsideCalibrationStreak = 0;
+    _gpsOutsideCalibrationStreak += 1;
+    if (_gpsOutsideCalibrationStreak <
+        GeofenceRecoveryPolicy.exitChecksBeforeRestore) {
+      return;
+    }
 
-    if (nearMasjid != null) {
-      // GPS says we're at a masjid but native missed it — silence
-      await controller.applySilenceForGeo(masjidId: nearMasjid.id);
+    final cleared = await controller.clearGeoSilence();
+    if (cleared) {
+      _gpsOutsideCalibrationStreak = 0;
       ref.invalidate(geoSilencedProvider);
+      ref.invalidate(activeMasjidGeofencesProvider);
+      final eventLog = ref.read(eventLogServiceProvider);
+      await eventLog.log(
+        EventType.restored,
+        'Fast GPS exit repair cleared stuck masjid silence after leaving the area',
+      );
     }
   } catch (_) {
-    // GPS failed — do nothing, try again next calibration tick
+    // GPS failed; do nothing and try again on the next fast exit check.
   }
 });
 

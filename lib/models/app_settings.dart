@@ -78,7 +78,8 @@ extension SilenceLevelDisplay on SilenceLevel {
 
 /// All app settings.
 class AppSettings {
-  static const int defaultMasjidRadiusMeters = 200;
+  static const int defaultMasjidRadiusMeters = 150;
+  static const int defaultGpsCalibrationMinutes = 2;
 
   final CalculationMethodType calculationMethod;
   final TimingPreferences timingPreferences;
@@ -97,6 +98,10 @@ class AppSettings {
   /// When enabled, wait for a geofence dwell event before silencing.
   final bool requireMasjidDwellBeforeSilence;
 
+  /// When enabled, use foreground location updates only while geo-silenced
+  /// so exit detection can restore faster.
+  final bool fastGeoExitTrackingEnabled;
+
   final SilenceLevel silenceLevel;
   final bool usePerPrayerConfig;
   final bool onboardingComplete;
@@ -109,9 +114,10 @@ class AppSettings {
     required this.timingPreferences,
     this.timeBasedSilenceEnabled = false,
     this.geofenceSilenceEnabled = true,
-    this.gpsCalibrationMinutes = 5,
+    this.gpsCalibrationMinutes = defaultGpsCalibrationMinutes,
     this.masjidRadiusMeters = defaultMasjidRadiusMeters,
     this.requireMasjidDwellBeforeSilence = false,
+    this.fastGeoExitTrackingEnabled = false,
     this.silenceLevel = SilenceLevel.totalSilence,
     this.usePerPrayerConfig = false,
     this.onboardingComplete = false,
@@ -135,6 +141,7 @@ class AppSettings {
     int? gpsCalibrationMinutes,
     int? masjidRadiusMeters,
     bool? requireMasjidDwellBeforeSilence,
+    bool? fastGeoExitTrackingEnabled,
     SilenceLevel? silenceLevel,
     bool? usePerPrayerConfig,
     bool? onboardingComplete,
@@ -150,6 +157,8 @@ class AppSettings {
         gpsCalibrationMinutes: gpsCalibrationMinutes ?? this.gpsCalibrationMinutes,
         masjidRadiusMeters: masjidRadiusMeters ?? this.masjidRadiusMeters,
         requireMasjidDwellBeforeSilence: requireMasjidDwellBeforeSilence ?? this.requireMasjidDwellBeforeSilence,
+        fastGeoExitTrackingEnabled:
+            fastGeoExitTrackingEnabled ?? this.fastGeoExitTrackingEnabled,
         silenceLevel: silenceLevel ?? this.silenceLevel,
         usePerPrayerConfig: usePerPrayerConfig ?? this.usePerPrayerConfig,
         onboardingComplete: onboardingComplete ?? this.onboardingComplete,

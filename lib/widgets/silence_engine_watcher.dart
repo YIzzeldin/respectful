@@ -18,6 +18,7 @@ class SilenceEngineWatcher extends ConsumerWidget {
     ref.watch(autoScheduleProvider);
     ref.watch(autoGeofenceProvider);
     ref.watch(gpsCalibrationProvider); // GPS calibration for geofence self-healing
+    ref.watch(geoExitRecoveryProvider); // Faster repair for missed EXIT events
     return child;
   }
 }

@@ -114,6 +114,7 @@ class GeofenceReceiver : BroadcastReceiver() {
             .putLong("geo_silenced_at", System.currentTimeMillis())
             .putStringSet("active_masjid_geofences", activeMasjids)
             .commit()
+        GeoExitTrackingCoordinator.sync(context)
 
         Log.d(TAG, "Entered masjid(s): $masjidIds, active set: $activeMasjids")
         NativeEventLog.log(context, "geofenceEnter", "Entered masjid — phone silenced")
@@ -167,11 +168,13 @@ class GeofenceReceiver : BroadcastReceiver() {
                 .remove("geo_saved_ring_volume")
                 .remove("geo_saved_notification_volume")
                 .commit()
+            GeoExitTrackingCoordinator.sync(context)
         } else {
             // Still inside other masjids — stay silent
             prefs.edit()
                 .putStringSet("active_masjid_geofences", activeMasjids)
                 .commit()
+            GeoExitTrackingCoordinator.sync(context)
             Log.d(TAG, "Exited masjid(s): $masjidIds, still in: $activeMasjids")
         }
     }

@@ -140,6 +140,12 @@ class AppLocalizations {
   String get passThroughProtectionDesc => isArabic
       ? 'Wait for a dwell event before silencing to avoid accidental silence while passing by'
       : 'Wait for a dwell event before silencing to avoid accidental silence while passing by';
+  String get fasterExitDetection => isArabic
+      ? 'اكتشاف خروج أسرع'
+      : 'Faster Exit Detection';
+  String get fasterExitDetectionDesc => isArabic
+      ? 'يشغّل تتبع موقع مؤقت مع إشعار دائم فقط أثناء صمت المسجد لتحسين الاستعادة عند المغادرة'
+      : 'Uses a temporary foreground location notification only while masjid silence is active to restore faster when you leave';
   String gpsCalibrationInterval(int mins) => isArabic
       ? 'كل $mins دقيقة'
       : 'Every $mins minutes';

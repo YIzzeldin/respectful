@@ -124,6 +124,7 @@ class MainActivity : FlutterActivity() {
                                 .remove("geo_saved_ring_volume")
                                 .remove("geo_saved_notification_volume")
                                 .commit()
+                            GeoExitTrackingCoordinator.sync(this)
                             result.success(true)
                         }
                     )
@@ -172,6 +173,7 @@ class MainActivity : FlutterActivity() {
                             .putLong("geo_silenced_at", System.currentTimeMillis())
                             .putStringSet("active_masjid_geofences", activeMasjids)
                             .commit()
+                        GeoExitTrackingCoordinator.sync(this)
                     }
                     result.success(success)
                 }
@@ -209,6 +211,7 @@ class MainActivity : FlutterActivity() {
                         prefs.edit()
                             .putStringSet("active_masjid_geofences", activeMasjids)
                             .commit()
+                        GeoExitTrackingCoordinator.sync(this)
                         result.success("still_at_other")
                         return@setMethodCallHandler
                     }
@@ -236,6 +239,7 @@ class MainActivity : FlutterActivity() {
                         .remove("geo_saved_ring_volume")
                         .remove("geo_saved_notification_volume")
                         .commit()
+                    GeoExitTrackingCoordinator.sync(this)
 
                     result.success("restored")
                 }
@@ -273,6 +277,7 @@ class MainActivity : FlutterActivity() {
                             .commit()
                         Log.d("Respectful", "Cleared geo state and restored phone")
                     }
+                    GeoExitTrackingCoordinator.sync(this)
                     result.success(true)
                 }
                 "forceRestoreNormal" -> {
@@ -302,6 +307,7 @@ class MainActivity : FlutterActivity() {
                             .remove("geo_saved_ring_volume")
                             .remove("geo_saved_notification_volume")
                             .commit()
+                        GeoExitTrackingCoordinator.sync(this)
                         result.success(true)
                     } catch (e: Exception) {
                         result.success(false)
@@ -323,6 +329,10 @@ class MainActivity : FlutterActivity() {
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
                     val set = prefs.getStringSet("active_masjid_geofences", emptySet()) ?: emptySet()
                     result.success(set.toList())
+                }
+                "syncGeoExitTracking" -> {
+                    GeoExitTrackingCoordinator.sync(this)
+                    result.success(true)
                 }
                 else -> {
                     result.notImplemented()

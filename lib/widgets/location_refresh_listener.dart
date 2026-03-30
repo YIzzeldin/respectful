@@ -50,6 +50,9 @@ class _LocationRefreshListenerState
     ref.invalidate(importNativeEventsProvider);
     // Refresh geo state — native side may have changed while app was backgrounded
     ref.invalidate(geoSilencedProvider);
+    ref.invalidate(gpsCalibrationProvider);
+    ref.invalidate(geoExitRecoveryProvider);
+    ref.read(volumeControllerProvider).syncGeoExitTracking();
   }
 
   @override
