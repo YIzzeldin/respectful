@@ -9,6 +9,7 @@ class StorageService {
   static const _keyTimingPreferences = 'timing_preferences';
   static const _keyAutoSilentEnabled = 'auto_silent_enabled';
   static const _keyGeofenceSilenceEnabled = 'geofence_silence_enabled';
+  static const _keyMasterSilenceEnabled = 'master_silence_enabled';
   static const _keySilenceLevel = 'silence_level';
   static const _keyUsePerPrayerConfig = 'use_per_prayer_config';
   static const _keyOnboardingComplete = 'onboarding_complete';
@@ -43,13 +44,18 @@ class StorageService {
       ),
       timingPreferences: timingJson != null
           ? TimingPreferences.fromJson(
-              jsonDecode(timingJson) as Map<String, dynamic>)
+              jsonDecode(timingJson) as Map<String, dynamic>,
+            )
           : TimingPreferences.defaults(),
       timeBasedSilenceEnabled: _prefs.getBool(_keyAutoSilentEnabled) ?? false,
-      geofenceSilenceEnabled: _prefs.getBool(_keyGeofenceSilenceEnabled) ?? true,
-      gpsCalibrationMinutes: _prefs.getInt(_keyGpsCalibrationMinutes) ??
+      geofenceSilenceEnabled:
+          _prefs.getBool(_keyGeofenceSilenceEnabled) ?? true,
+      masterSilenceEnabled: _prefs.getBool(_keyMasterSilenceEnabled) ?? true,
+      gpsCalibrationMinutes:
+          _prefs.getInt(_keyGpsCalibrationMinutes) ??
           AppSettings.defaultGpsCalibrationMinutes,
-      masjidRadiusMeters: _prefs.getInt(_keyMasjidRadiusMeters) ??
+      masjidRadiusMeters:
+          _prefs.getInt(_keyMasjidRadiusMeters) ??
           AppSettings.defaultMasjidRadiusMeters,
       requireMasjidDwellBeforeSilence:
           _prefs.getBool(_keyRequireMasjidDwellBeforeSilence) ?? false,
@@ -71,12 +77,29 @@ class StorageService {
   /// Save all settings to storage.
   Future<void> saveSettings(AppSettings settings) async {
     await _prefs.setString(
-        _keyCalculationMethod, settings.calculationMethod.name);
+      _keyCalculationMethod,
+      settings.calculationMethod.name,
+    );
     await _prefs.setString(
-        _keyTimingPreferences, jsonEncode(settings.timingPreferences.toJson()));
-    await _prefs.setBool(_keyAutoSilentEnabled, settings.timeBasedSilenceEnabled);
-    await _prefs.setBool(_keyGeofenceSilenceEnabled, settings.geofenceSilenceEnabled);
-    await _prefs.setInt(_keyGpsCalibrationMinutes, settings.gpsCalibrationMinutes);
+      _keyTimingPreferences,
+      jsonEncode(settings.timingPreferences.toJson()),
+    );
+    await _prefs.setBool(
+      _keyAutoSilentEnabled,
+      settings.timeBasedSilenceEnabled,
+    );
+    await _prefs.setBool(
+      _keyGeofenceSilenceEnabled,
+      settings.geofenceSilenceEnabled,
+    );
+    await _prefs.setBool(
+      _keyMasterSilenceEnabled,
+      settings.masterSilenceEnabled,
+    );
+    await _prefs.setInt(
+      _keyGpsCalibrationMinutes,
+      settings.gpsCalibrationMinutes,
+    );
     await _prefs.setInt(_keyMasjidRadiusMeters, settings.masjidRadiusMeters);
     await _prefs.setBool(
       _keyRequireMasjidDwellBeforeSilence,

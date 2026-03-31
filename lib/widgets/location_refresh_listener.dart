@@ -16,8 +16,8 @@ class LocationRefreshListener extends ConsumerStatefulWidget {
 }
 
 class _LocationRefreshListenerState
-    extends ConsumerState<LocationRefreshListener> with WidgetsBindingObserver {
-
+    extends ConsumerState<LocationRefreshListener>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -48,17 +48,21 @@ class _LocationRefreshListenerState
     ref.invalidate(exactAlarmPermissionProvider);
     // Import any native events that happened while app was backgrounded/dead
     ref.invalidate(importNativeEventsProvider);
+    ref.invalidate(suppressionStateProvider);
     // Refresh geo state — native side may have changed while app was backgrounded
     ref.invalidate(geoSilencedProvider);
     ref.invalidate(gpsCalibrationProvider);
     ref.invalidate(geoExitRecoveryProvider);
+    ref.invalidate(geoReentryProbationProvider);
     ref.read(volumeControllerProvider).syncGeoExitTracking();
   }
 
   @override
   Widget build(BuildContext context) {
     ref.watch(locationRefreshProvider);
-    ref.watch(importNativeEventsProvider); // keep alive so events import on resume
+    ref.watch(
+      importNativeEventsProvider,
+    ); // keep alive so events import on resume
     return widget.child;
   }
 }

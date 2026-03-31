@@ -83,11 +83,13 @@ class AppSettings {
 
   final CalculationMethodType calculationMethod;
   final TimingPreferences timingPreferences;
+
   /// Time-based auto-silence (silence at prayer times). OFF by default.
   final bool timeBasedSilenceEnabled;
 
   /// Geofence-based auto-silence (silence at saved masjids). ON by default — main use case.
   final bool geofenceSilenceEnabled;
+  final bool masterSilenceEnabled;
 
   /// GPS calibration interval in minutes (5-30). Only active when geofencing is enabled.
   final int gpsCalibrationMinutes;
@@ -114,6 +116,7 @@ class AppSettings {
     required this.timingPreferences,
     this.timeBasedSilenceEnabled = false,
     this.geofenceSilenceEnabled = true,
+    this.masterSilenceEnabled = true,
     this.gpsCalibrationMinutes = defaultGpsCalibrationMinutes,
     this.masjidRadiusMeters = defaultMasjidRadiusMeters,
     this.requireMasjidDwellBeforeSilence = false,
@@ -126,9 +129,8 @@ class AppSettings {
     this.longitude,
   });
 
-  factory AppSettings.defaults() => AppSettings(
-        timingPreferences: TimingPreferences.defaults(),
-      );
+  factory AppSettings.defaults() =>
+      AppSettings(timingPreferences: TimingPreferences.defaults());
 
   bool get hasLocation => latitude != null && longitude != null;
   double get masjidRadiusKm => masjidRadiusMeters / 1000.0;
@@ -138,6 +140,7 @@ class AppSettings {
     TimingPreferences? timingPreferences,
     bool? timeBasedSilenceEnabled,
     bool? geofenceSilenceEnabled,
+    bool? masterSilenceEnabled,
     int? gpsCalibrationMinutes,
     int? masjidRadiusMeters,
     bool? requireMasjidDwellBeforeSilence,
@@ -148,22 +151,25 @@ class AppSettings {
     String? languageCode,
     double? latitude,
     double? longitude,
-  }) =>
-      AppSettings(
-        calculationMethod: calculationMethod ?? this.calculationMethod,
-        timingPreferences: timingPreferences ?? this.timingPreferences,
-        timeBasedSilenceEnabled: timeBasedSilenceEnabled ?? this.timeBasedSilenceEnabled,
-        geofenceSilenceEnabled: geofenceSilenceEnabled ?? this.geofenceSilenceEnabled,
-        gpsCalibrationMinutes: gpsCalibrationMinutes ?? this.gpsCalibrationMinutes,
-        masjidRadiusMeters: masjidRadiusMeters ?? this.masjidRadiusMeters,
-        requireMasjidDwellBeforeSilence: requireMasjidDwellBeforeSilence ?? this.requireMasjidDwellBeforeSilence,
-        fastGeoExitTrackingEnabled:
-            fastGeoExitTrackingEnabled ?? this.fastGeoExitTrackingEnabled,
-        silenceLevel: silenceLevel ?? this.silenceLevel,
-        usePerPrayerConfig: usePerPrayerConfig ?? this.usePerPrayerConfig,
-        onboardingComplete: onboardingComplete ?? this.onboardingComplete,
-        languageCode: languageCode ?? this.languageCode,
-        latitude: latitude ?? this.latitude,
-        longitude: longitude ?? this.longitude,
-      );
+  }) => AppSettings(
+    calculationMethod: calculationMethod ?? this.calculationMethod,
+    timingPreferences: timingPreferences ?? this.timingPreferences,
+    timeBasedSilenceEnabled:
+        timeBasedSilenceEnabled ?? this.timeBasedSilenceEnabled,
+    geofenceSilenceEnabled:
+        geofenceSilenceEnabled ?? this.geofenceSilenceEnabled,
+    masterSilenceEnabled: masterSilenceEnabled ?? this.masterSilenceEnabled,
+    gpsCalibrationMinutes: gpsCalibrationMinutes ?? this.gpsCalibrationMinutes,
+    masjidRadiusMeters: masjidRadiusMeters ?? this.masjidRadiusMeters,
+    requireMasjidDwellBeforeSilence:
+        requireMasjidDwellBeforeSilence ?? this.requireMasjidDwellBeforeSilence,
+    fastGeoExitTrackingEnabled:
+        fastGeoExitTrackingEnabled ?? this.fastGeoExitTrackingEnabled,
+    silenceLevel: silenceLevel ?? this.silenceLevel,
+    usePerPrayerConfig: usePerPrayerConfig ?? this.usePerPrayerConfig,
+    onboardingComplete: onboardingComplete ?? this.onboardingComplete,
+    languageCode: languageCode ?? this.languageCode,
+    latitude: latitude ?? this.latitude,
+    longitude: longitude ?? this.longitude,
+  );
 }

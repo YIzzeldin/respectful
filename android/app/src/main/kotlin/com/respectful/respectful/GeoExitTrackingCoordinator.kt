@@ -27,7 +27,7 @@ object GeoExitTrackingCoordinator {
 
     fun markRunning(context: Context, running: Boolean) {
         val prefs = context.getSharedPreferences(AlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean(RUNNING_KEY, running).apply()
+        prefs.edit().putBoolean(RUNNING_KEY, running).commit()
     }
 
     private fun start(context: Context) {

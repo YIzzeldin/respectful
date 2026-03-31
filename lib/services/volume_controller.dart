@@ -35,7 +35,8 @@ class VolumeController {
 
   /// Check if exact alarm permission is granted (Android 12+).
   Future<bool> hasExactAlarmPermission() async {
-    return await _channel.invokeMethod<bool>('hasExactAlarmPermission') ?? false;
+    return await _channel.invokeMethod<bool>('hasExactAlarmPermission') ??
+        false;
   }
 
   /// Open system settings for exact alarm permission.
@@ -50,7 +51,8 @@ class VolumeController {
 
   /// Get current interruption filter.
   Future<int> getCurrentInterruptionFilter() async {
-    return await _channel.invokeMethod<int>('getCurrentInterruptionFilter') ?? 0;
+    return await _channel.invokeMethod<int>('getCurrentInterruptionFilter') ??
+        0;
   }
 
   /// Schedule a silence alarm at a specific time.
@@ -84,12 +86,27 @@ class VolumeController {
     await _channel.invokeMethod('cancelAllAlarms');
   }
 
+  Future<bool> disableTimeBasedSilence() async {
+    return await _channel.invokeMethod<bool>('disableTimeBasedSilence') ??
+        false;
+  }
+
+  Future<bool> applySilenceForPrayerWindow({
+    required String prayerName,
+    required int windowEndMs,
+  }) async {
+    return await _channel.invokeMethod<bool>('applySilenceForPrayerWindow', {
+          'prayerName': prayerName,
+          'windowEndMs': windowEndMs,
+        }) ??
+        false;
+  }
+
   /// Register geofences for saved masjid locations.
   Future<bool> registerGeofences(List<Map<String, dynamic>> masjids) async {
-    return await _channel.invokeMethod<bool>(
-          'registerGeofences',
-          {'masjids': masjids},
-        ) ??
+    return await _channel.invokeMethod<bool>('registerGeofences', {
+          'masjids': masjids,
+        }) ??
         false;
   }
 
@@ -99,6 +116,10 @@ class VolumeController {
     await _channel.invokeMethod('removeAllGeofences');
   }
 
+  Future<bool> disableGeofenceSilence() async {
+    return await _channel.invokeMethod<bool>('disableGeofenceSilence') ?? false;
+  }
+
   /// Remove geofences only (for re-registration). Does NOT clear geo_silenced.
   Future<void> removeGeofencesOnly() async {
     await _channel.invokeMethod('removeGeofencesOnly');
@@ -106,7 +127,10 @@ class VolumeController {
 
   /// Check if background location permission is granted.
   Future<bool> hasBackgroundLocationPermission() async {
-    return await _channel.invokeMethod<bool>('hasBackgroundLocationPermission') ?? false;
+    return await _channel.invokeMethod<bool>(
+          'hasBackgroundLocationPermission',
+        ) ??
+        false;
   }
 
   /// Silence phone AND mark geo_silenced=true in native SharedPreferences.
@@ -114,21 +138,39 @@ class VolumeController {
   Future<bool> applySilenceForGeo({String? masjidId}) async {
     final args = <String, dynamic>{};
     if (masjidId != null) args['masjidId'] = masjidId;
-    return await _channel.invokeMethod<bool>('applySilenceForGeo', args) ?? false;
+    return await _channel.invokeMethod<bool>('applySilenceForGeo', args) ??
+        false;
   }
 
   /// Clear geo silence for a specific deleted masjid.
   /// Returns: "not_silenced", "not_at_deleted", "still_at_other", or "restored".
   Future<String> clearGeoSilenceForMasjid(String masjidId) async {
     return await _channel.invokeMethod<String>('clearGeoSilenceForMasjid', {
-      'masjidId': masjidId,
-    }) ?? 'not_silenced';
+          'masjidId': masjidId,
+        }) ??
+        'not_silenced';
   }
 
   /// Clear geo silence only — restores phone if prayer is not active.
   /// If prayer IS active, just clears geo flags without touching DND.
   Future<bool> clearGeoSilence() async {
     return await _channel.invokeMethod<bool>('clearGeoSilence') ?? false;
+  }
+
+  Future<bool> manualExitSilenceMode() async {
+    return await _channel.invokeMethod<bool>('manualExitSilenceMode') ?? false;
+  }
+
+  Future<void> clearPrayerOverride() async {
+    await _channel.invokeMethod('clearPrayerOverride');
+  }
+
+  Future<void> clearGeoOverride() async {
+    await _channel.invokeMethod('clearGeoOverride');
+  }
+
+  Future<void> clearManualOverrides() async {
+    await _channel.invokeMethod('clearManualOverrides');
   }
 
   /// Force phone back to normal — ringer normal + DND all + clear all silence state.
@@ -139,6 +181,12 @@ class VolumeController {
   /// Read and clear native event log (events logged by GeofenceReceiver etc.)
   Future<String> readNativeEvents() async {
     return await _channel.invokeMethod<String>('readNativeEvents') ?? '[]';
+  }
+
+  /// Read the current native suppression/session flags.
+  Future<Map<String, dynamic>> getSuppressionState() async {
+    final result = await _channel.invokeMethod('getSuppressionState');
+    return Map<String, dynamic>.from(result as Map? ?? const {});
   }
 
   /// Check if phone is currently silenced by a geofence (native side).
@@ -153,7 +201,9 @@ class VolumeController {
 
   /// Get the IDs of masjids currently inside geofence.
   Future<List<String>> getActiveMasjidGeofences() async {
-    final result = await _channel.invokeMethod<List>('getActiveMasjidGeofences');
+    final result = await _channel.invokeMethod<List>(
+      'getActiveMasjidGeofences',
+    );
     return result?.cast<String>() ?? [];
   }
 

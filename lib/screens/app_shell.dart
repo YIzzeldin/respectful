@@ -18,18 +18,12 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> {
   int _currentIndex = 0;
 
-  final _screens = const [
-    HomeScreen(),
-    ActivityScreen(),
-    SettingsScreen(),
-  ];
+  final _screens = const [HomeScreen(), ActivityScreen(), SettingsScreen()];
 
   @override
   Widget build(BuildContext context) {
-    final isGeoSilenced = ref.watch(geoSilencedProvider).valueOrNull ?? false;
-    final activeWindow = ref.watch(activeSilenceWindowProvider);
-    final settings = ref.watch(settingsProvider);
-    final isSilenced = (settings.timeBasedSilenceEnabled && activeWindow != null) || isGeoSilenced;
+    final suppressionState = ref.watch(suppressionStateProvider).valueOrNull;
+    final isSilenced = suppressionState?.isSuppressed ?? false;
 
     return Scaffold(
       body: _screens[_currentIndex],
@@ -80,7 +74,9 @@ class _FloatingNavBar extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isSilenced ? 0.3 : 0.08),
+                  color: Colors.black.withValues(
+                    alpha: isSilenced ? 0.3 : 0.08,
+                  ),
                   blurRadius: 24,
                   offset: const Offset(0, 8),
                 ),

@@ -36,6 +36,10 @@ class GeofenceReceiver : BroadcastReceiver() {
 
         val prefs = context.getSharedPreferences(AlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE)
         val volumeService = VolumeControlService(context)
+        if (!isGeofenceSilenceEnabled(context)) {
+            Log.d(TAG, "Ignoring geofence transition because geofence silence is disabled")
+            return
+        }
 
         when (transition) {
             Geofence.GEOFENCE_TRANSITION_ENTER,
@@ -87,26 +91,28 @@ class GeofenceReceiver : BroadcastReceiver() {
         val activeMasjids = prefs.getStringSet("active_masjid_geofences", mutableSetOf())?.toMutableSet()
             ?: mutableSetOf()
         activeMasjids.addAll(validIds)
+        val isGeoVisitOverride = SuppressionSessionStore.isGeoVisitOverrideActive(prefs)
+
+        if (isGeoVisitOverride) {
+            prefs.edit()
+                .putStringSet("active_masjid_geofences", activeMasjids)
+                .commit()
+            Log.d(TAG, "Entered masjid(s) during manual geo override, active set: $activeMasjids")
+            return
+        }
 
         val isAlreadySilencedByGeo = prefs.getBoolean("geo_silenced", false)
+        val isSilencedByPrayer = prefs.getBoolean("is_silenced", false)
 
         if (!isAlreadySilencedByGeo) {
-            // First masjid entry — capture state and silence
-            val isSilencedByPrayer = prefs.getBoolean("is_silenced", false)
-
             if (!isSilencedByPrayer) {
-                // Not already silenced by prayer — capture state
-                val state = volumeService.captureCurrentState()
-                prefs.edit()
-                    .putInt("geo_saved_ringer_mode", state["ringerMode"] as Int)
-                    .putInt("geo_saved_interruption_filter", state["interruptionFilter"] as Int)
-                    .putInt("geo_saved_ring_volume", state["ringVolume"] as Int)
-                    .putInt("geo_saved_notification_volume", state["notificationVolume"] as Int)
-                    .commit()
+                SuppressionSessionStore.captureBaselineIfNeeded(context, prefs, volumeService)
+                val success = volumeService.applySilence()
+                if (!success) {
+                    Log.e(TAG, "Failed to silence on geofence enter — DND permission likely missing")
+                    return
+                }
             }
-
-            // Silence the phone
-            volumeService.applySilence()
         }
 
         prefs.edit()
@@ -129,8 +135,17 @@ class GeofenceReceiver : BroadcastReceiver() {
         val activeMasjids = prefs.getStringSet("active_masjid_geofences", mutableSetOf())?.toMutableSet()
             ?: mutableSetOf()
         activeMasjids.removeAll(masjidIds.toSet())
+        val isGeoVisitOverride = SuppressionSessionStore.isGeoVisitOverrideActive(prefs)
 
         if (activeMasjids.isEmpty()) {
+            if (isGeoVisitOverride) {
+                SuppressionSessionStore.clearGeoSession(prefs, clearVisitOverride = true)
+                SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
+                GeoExitTrackingCoordinator.sync(context)
+                Log.d(TAG, "Exited all masjids during manual geo override — visit closed")
+                return
+            }
+
             // Left all masjids — restore if not silenced by prayer time
             val isSilencedByPrayer = prefs.getBoolean("is_silenced", false)
 
@@ -144,30 +159,21 @@ class GeofenceReceiver : BroadcastReceiver() {
                 // User manually changed DND during visit — respect their choice
                 Log.d(TAG, "Exited masjid but user overrode DND — respecting override")
             } else if (!isSilencedByPrayer) {
-                // Restore to pre-masjid state
-                val savedState = mapOf(
-                    "ringerMode" to prefs.getInt("geo_saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
-                    "interruptionFilter" to prefs.getInt("geo_saved_interruption_filter", android.app.NotificationManager.INTERRUPTION_FILTER_ALL),
-                    "ringVolume" to prefs.getInt("geo_saved_ring_volume", 5),
-                    "notificationVolume" to prefs.getInt("geo_saved_notification_volume", 5),
-                )
-                volumeService.restoreState(savedState)
-                Log.d(TAG, "Exited all masjids — restored phone state")
-                NativeEventLog.log(context, "geofenceExit", "Left masjid — phone restored")
+                val restored = SuppressionSessionStore.restoreBaseline(context, prefs, volumeService)
+                if (restored) {
+                    Log.d(TAG, "Exited all masjids — restored phone state")
+                    NativeEventLog.log(context, "geofenceExit", "Left masjid — phone restored")
+                } else {
+                    Log.e(TAG, "Failed to restore on geofence exit — session left active for retry")
+                    return
+                }
             } else {
                 Log.d(TAG, "Exited all masjids but prayer silence active — keeping silent")
                 NativeEventLog.log(context, "geofenceExit", "Left masjid — prayer still active")
             }
 
-            // Clean up geo state
-            prefs.edit()
-                .putBoolean("geo_silenced", false)
-                .remove("active_masjid_geofences")
-                .remove("geo_saved_ringer_mode")
-                .remove("geo_saved_interruption_filter")
-                .remove("geo_saved_ring_volume")
-                .remove("geo_saved_notification_volume")
-                .commit()
+            SuppressionSessionStore.clearGeoSession(prefs)
+            SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
             GeoExitTrackingCoordinator.sync(context)
         } else {
             // Still inside other masjids — stay silent
@@ -182,5 +188,12 @@ class GeofenceReceiver : BroadcastReceiver() {
     private fun requiresMasjidDwellBeforeSilence(context: Context): Boolean {
         val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         return prefs.getBoolean("flutter.require_masjid_dwell_before_silence", false)
+    }
+
+    private fun isGeofenceSilenceEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val masterEnabled = prefs.getBoolean("flutter.master_silence_enabled", true)
+        val geofenceEnabled = prefs.getBoolean("flutter.geofence_silence_enabled", true)
+        return masterEnabled && geofenceEnabled
     }
 }

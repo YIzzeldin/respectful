@@ -39,6 +39,7 @@ class GeoExitTrackingService : Service() {
         private const val BUFFER_FACTOR = 0.10
         private const val EXIT_CHECKS_BEFORE_RESTORE = 2
         private const val FLUTTER_PREFS_NAME = "FlutterSharedPreferences"
+        private const val GEO_REENTRY_PROBATION_MS = 2 * 60 * 1000L
     }
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -155,7 +156,9 @@ class GeoExitTrackingService : Service() {
         outsideStreak += 1
         if (outsideStreak < EXIT_CHECKS_BEFORE_RESTORE) return
 
-        clearGeoSilenceFromTracking(prefs)
+        val cleared = clearGeoSilenceFromTracking(prefs)
+        if (!cleared) return
+
         NativeEventLog.log(
             this,
             "geofenceExit",
@@ -166,36 +169,28 @@ class GeoExitTrackingService : Service() {
 
     private fun clearGeoSilenceFromTracking(
         prefs: android.content.SharedPreferences,
-    ) {
+    ): Boolean {
         val isPrayerActive = prefs.getBoolean("is_silenced", false)
         val currentFilter = volumeService.getCurrentInterruptionFilter()
         val wasOverridden = currentFilter != android.app.NotificationManager.INTERRUPTION_FILTER_NONE &&
             currentFilter != android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY
 
         if (!wasOverridden && !isPrayerActive) {
-            val savedState = mapOf(
-                "ringerMode" to prefs.getInt(
-                    "geo_saved_ringer_mode",
-                    android.media.AudioManager.RINGER_MODE_NORMAL,
-                ),
-                "interruptionFilter" to prefs.getInt(
-                    "geo_saved_interruption_filter",
-                    android.app.NotificationManager.INTERRUPTION_FILTER_ALL,
-                ),
-                "ringVolume" to prefs.getInt("geo_saved_ring_volume", 5),
-                "notificationVolume" to prefs.getInt("geo_saved_notification_volume", 5),
+            val restored = SuppressionSessionStore.restoreBaseline(
+                this,
+                prefs,
+                volumeService,
             )
-            volumeService.restoreState(savedState)
+            if (!restored) return false
         }
 
-        prefs.edit()
-            .putBoolean("geo_silenced", false)
-            .remove("active_masjid_geofences")
-            .remove("geo_saved_ringer_mode")
-            .remove("geo_saved_interruption_filter")
-            .remove("geo_saved_ring_volume")
-            .remove("geo_saved_notification_volume")
-            .commit()
+        SuppressionSessionStore.clearGeoSession(prefs)
+        SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
+        SuppressionSessionStore.setGeoReentryProbationUntil(
+            prefs,
+            System.currentTimeMillis() + GEO_REENTRY_PROBATION_MS,
+        )
+        return true
     }
 
     private fun nearestMasjidDistanceMeters(

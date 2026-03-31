@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../l10n/app_localizations.dart';
@@ -24,10 +23,12 @@ class HomeScreen extends ConsumerWidget {
     final nextPrayer = ref.watch(nextPrayerProvider);
     final activeWindow = ref.watch(activeSilenceWindowProvider);
     final settings = ref.watch(settingsProvider);
-    final isGeoSilenced = ref.watch(geoSilencedProvider).valueOrNull ?? false;
+    final suppressionState = ref.watch(suppressionStateProvider).valueOrNull;
+    final isGeoSilenced = suppressionState?.hasGeoReason ?? false;
+    final isPrayerSilenced = suppressionState?.hasTimeReason ?? false;
+    final silencedWindow = isPrayerSilenced ? activeWindow : null;
 
-    // Only count activeWindow if time-based silence is enabled
-    final isSilenced = (settings.timeBasedSilenceEnabled && activeWindow != null) || isGeoSilenced;
+    final isSilenced = suppressionState?.isSuppressed ?? false;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 500),
@@ -39,14 +40,20 @@ class HomeScreen extends ConsumerWidget {
           child: prayerDay == null
               ? _buildNoLocation(context)
               : isSilenced
-                  ? _SilencedScreen(
-                      prayerDay: prayerDay,
-                      nextPrayer: nextPrayer,
-                      activeWindow: activeWindow,
-                      isGeoSilenced: isGeoSilenced,
-                      settings: settings,
-                    )
-                  : _buildNormalContent(context, ref, prayerDay, nextPrayer, settings),
+              ? _SilencedScreen(
+                  prayerDay: prayerDay,
+                  nextPrayer: nextPrayer,
+                  activeWindow: silencedWindow,
+                  isGeoSilenced: isGeoSilenced,
+                  settings: settings,
+                )
+              : _buildNormalContent(
+                  context,
+                  ref,
+                  prayerDay,
+                  nextPrayer,
+                  settings,
+                ),
         ),
       ),
     );
@@ -62,11 +69,16 @@ class HomeScreen extends ConsumerWidget {
           children: [
             Icon(Icons.location_off, size: 64, color: AppColors.textTertiary),
             const SizedBox(height: 16),
-            Text(l.locationNeeded, style: Theme.of(context).textTheme.headlineMedium),
+            Text(
+              l.locationNeeded,
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
             const SizedBox(height: 8),
-            Text(l.locationNeededDesc,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium),
+            Text(
+              l.locationNeededDesc,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ],
         ),
       ),
@@ -83,7 +95,7 @@ class HomeScreen extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     final timeBasedSilenceEnabled = settings.timeBasedSilenceEnabled;
     final geofenceEnabled = settings.geofenceSilenceEnabled;
-    final allDisabled = !timeBasedSilenceEnabled && !geofenceEnabled;
+    final masterEnabled = settings.masterSilenceEnabled;
     final now = DateTime.now();
     final isGeoSilenced = false; // we're in normal mode
 
@@ -97,32 +109,45 @@ class HomeScreen extends ConsumerWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l.greeting,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                Text(
+                  l.greeting,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(DateFormat('EEEE, d MMM yyyy').format(now),
-                    style: const TextStyle(fontSize: 13, color: AppColors.textTertiary)),
+                Text(
+                  DateFormat('EEEE, d MMM yyyy').format(now),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textTertiary,
+                  ),
+                ),
               ],
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 GestureDetector(
-                  onTap: () {
-                    if (allDisabled) {
-                      ref.read(settingsProvider.notifier).setGeofenceSilenceEnabled(true);
-                      _enableAndCheckLocation(ref);
+                  onTap: () async {
+                    if (!masterEnabled) {
+                      await ref
+                          .read(settingsProvider.notifier)
+                          .setMasterSilenceEnabled(true);
+                      await _resumeSilenceNow(ref);
                     } else {
-                      ref.read(settingsProvider.notifier).setGeofenceSilenceEnabled(false);
-                      ref.read(settingsProvider.notifier).setTimeBasedSilenceEnabled(false);
-                      _restorePhoneNow(ref);
+                      await _restorePhoneNow(ref);
                     }
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: allDisabled
+                      color: !masterEnabled
                           ? AppColors.error.withValues(alpha: 0.1)
                           : AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -130,15 +155,24 @@ class HomeScreen extends ConsumerWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(allDisabled ? Icons.volume_up : Icons.volume_off,
-                            size: 12,
-                            color: allDisabled ? AppColors.error : AppColors.primary),
+                        Icon(
+                          !masterEnabled ? Icons.volume_up : Icons.volume_off,
+                          size: 12,
+                          color: !masterEnabled
+                              ? AppColors.error
+                              : AppColors.primary,
+                        ),
                         const SizedBox(width: 4),
-                        Text(allDisabled ? l.off : l.on,
-                            style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: allDisabled ? AppColors.error : AppColors.primary)),
+                        Text(
+                          !masterEnabled ? l.off : l.on,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: !masterEnabled
+                                ? AppColors.error
+                                : AppColors.primary,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -147,9 +181,17 @@ class HomeScreen extends ConsumerWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _ModeChip(icon: Icons.mosque_rounded, label: l.masjid, enabled: geofenceEnabled),
+                    _ModeChip(
+                      icon: Icons.mosque_rounded,
+                      label: l.masjid,
+                      enabled: geofenceEnabled,
+                    ),
                     const SizedBox(width: 4),
-                    _ModeChip(icon: Icons.schedule_rounded, label: l.time, enabled: timeBasedSilenceEnabled),
+                    _ModeChip(
+                      icon: Icons.schedule_rounded,
+                      label: l.time,
+                      enabled: timeBasedSilenceEnabled,
+                    ),
                   ],
                 ),
               ],
@@ -171,8 +213,14 @@ class HomeScreen extends ConsumerWidget {
         const SizedBox(height: 24),
 
         // Today's prayers
-        Text(l.todaysPrayers,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+        Text(
+          l.todaysPrayers,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
@@ -183,11 +231,23 @@ class HomeScreen extends ConsumerWidget {
             children: [
               _buildPrayerRow(day, PrayerName.fajr, day.fajr, nextPrayer, now),
               _divider(),
-              _buildPrayerRow(day, PrayerName.dhuhr, day.dhuhr, nextPrayer, now),
+              _buildPrayerRow(
+                day,
+                PrayerName.dhuhr,
+                day.dhuhr,
+                nextPrayer,
+                now,
+              ),
               _divider(),
               _buildPrayerRow(day, PrayerName.asr, day.asr, nextPrayer, now),
               _divider(),
-              _buildPrayerRow(day, PrayerName.maghrib, day.maghrib, nextPrayer, now),
+              _buildPrayerRow(
+                day,
+                PrayerName.maghrib,
+                day.maghrib,
+                nextPrayer,
+                now,
+              ),
               _divider(),
               _buildPrayerRow(day, PrayerName.isha, day.isha, nextPrayer, now),
             ],
@@ -211,7 +271,12 @@ class HomeScreen extends ConsumerWidget {
   ) {
     final isNext = nextPrayer != null && nextPrayer.$1 == prayer;
     final isPast = time.isBefore(now);
-    return PrayerCard(prayer: prayer, time: time, isNext: isNext, isPast: isPast && !isNext);
+    return PrayerCard(
+      prayer: prayer,
+      time: time,
+      isNext: isNext,
+      isPast: isPast && !isNext,
+    );
   }
 
   Widget _divider() {
@@ -221,43 +286,26 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _enableAndCheckLocation(WidgetRef ref) async {
-    final controller = ref.read(volumeControllerProvider);
-    final masjids = ref.read(savedMasjidsProvider);
-    final settings = ref.read(settingsProvider);
-    if (masjids.isEmpty) return;
-    ref.invalidate(autoGeofenceProvider);
+  Future<void> _resumeSilenceNow(WidgetRef ref) async {
     try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
-      final locationService = ref.read(locationServiceProvider);
-      for (final masjid in masjids) {
-        final distance = locationService.hasMovedSignificantly(
-          storedLat: masjid.latitude,
-          storedLng: masjid.longitude,
-          currentLat: position.latitude,
-          currentLng: position.longitude,
-          thresholdKm: settings.masjidRadiusKm,
-        );
-        if (!distance) {
-          await controller.applySilenceForGeo(masjidId: masjid.id);
-          ref.invalidate(geoSilencedProvider);
-          break;
-        }
-      }
+      await reEvaluateCurrentSuppression(ref);
     } catch (_) {}
   }
 
   Future<void> _restorePhoneNow(WidgetRef ref) async {
+    await ref.read(settingsProvider.notifier).setMasterSilenceEnabled(false);
     final controller = ref.read(volumeControllerProvider);
     final eventLog = ref.read(eventLogServiceProvider);
-    await controller.cancelAllAlarms();
-    await controller.removeAllGeofences();
-    await controller.forceRestoreNormal();
+    await controller.clearManualOverrides();
+    await controller.disableTimeBasedSilence();
+    await controller.disableGeofenceSilence();
+    ref.invalidate(suppressionStateProvider);
     ref.invalidate(geoSilencedProvider);
     ref.invalidate(activeMasjidGeofencesProvider);
-    await eventLog.log(EventType.restored, 'Master toggle OFF — phone restored to normal');
+    await eventLog.log(
+      EventType.restored,
+      'Master toggle OFF — phone restored to normal',
+    );
   }
 }
 
@@ -332,7 +380,9 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
       // Load geo silenced timestamp
       final ms = await controller.getGeoSilencedAt();
       if (ms > 0 && mounted) {
-        setState(() => _silencedSince = DateTime.fromMillisecondsSinceEpoch(ms));
+        setState(
+          () => _silencedSince = DateTime.fromMillisecondsSinceEpoch(ms),
+        );
       }
     } else if (widget.activeWindow != null) {
       setState(() => _silencedSince = widget.activeWindow!.start);
@@ -356,36 +406,42 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
               return Stack(
                 clipBehavior: Clip.none,
                 children: [
-                _FloatingOrb(
-                  t: t,
-                  baseX: -30, baseY: -40,
-                  radiusX: 80, radiusY: 60,
-                  size: 300,
-                  color: const Color(0xFFFDBA49),
-                  opacity: 0.35,
-                  phase: 0,
-                ),
-                _FloatingOrb(
-                  t: t,
-                  baseX: 150, baseY: 450,
-                  radiusX: 70, radiusY: 90,
-                  size: 280,
-                  color: const Color(0xFFFDBA49),
-                  opacity: 0.25,
-                  phase: 0.33,
-                ),
-                _FloatingOrb(
-                  t: t,
-                  baseX: 80, baseY: 200,
-                  radiusX: 50, radiusY: 40,
-                  size: 200,
-                  color: const Color(0xFFFDBA49),
-                  opacity: 0.2,
-                  phase: 0.66,
-                ),
-              ],
-            );
-          },
+                  _FloatingOrb(
+                    t: t,
+                    baseX: -30,
+                    baseY: -40,
+                    radiusX: 80,
+                    radiusY: 60,
+                    size: 300,
+                    color: const Color(0xFFFDBA49),
+                    opacity: 0.35,
+                    phase: 0,
+                  ),
+                  _FloatingOrb(
+                    t: t,
+                    baseX: 150,
+                    baseY: 450,
+                    radiusX: 70,
+                    radiusY: 90,
+                    size: 280,
+                    color: const Color(0xFFFDBA49),
+                    opacity: 0.25,
+                    phase: 0.33,
+                  ),
+                  _FloatingOrb(
+                    t: t,
+                    baseX: 80,
+                    baseY: 200,
+                    radiusX: 50,
+                    radiusY: 40,
+                    size: 200,
+                    color: const Color(0xFFFDBA49),
+                    opacity: 0.2,
+                    phase: 0.66,
+                  ),
+                ],
+              );
+            },
           ),
         ),
 
@@ -399,11 +455,20 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.mosque_rounded, color: Color(0xFFFDBA49), size: 24),
+                    const Icon(
+                      Icons.mosque_rounded,
+                      color: Color(0xFFFDBA49),
+                      size: 24,
+                    ),
                     const SizedBox(width: 10),
-                    Text(l.greeting,
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white70)),
+                    Text(
+                      l.greeting,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
+                      ),
+                    ),
                   ],
                 ),
                 Container(
@@ -412,9 +477,15 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white.withValues(alpha: 0.05),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
                   ),
-                  child: const Icon(Icons.notifications_off_rounded, color: Colors.white60, size: 20),
+                  child: const Icon(
+                    Icons.notifications_off_rounded,
+                    color: Colors.white60,
+                    size: 20,
+                  ),
                 ),
               ],
             ),
@@ -428,7 +499,9 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withValues(alpha: 0.03),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFF096444).withValues(alpha: 0.2),
@@ -448,27 +521,39 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
 
             // "Phone Silenced" title
             Center(
-              child: Text(l.phoneSilenced,
-                  style: const TextStyle(
-                      fontSize: 36, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: -0.5)),
+              child: Text(
+                l.phoneSilenced,
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                ),
+              ),
             ),
             const SizedBox(height: 12),
 
             // "Currently at" + masjid name (tappable to open masjid list)
             if (widget.isGeoSilenced) ...[
               Center(
-                child: Text(l.currentlyAt.toUpperCase(),
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 2,
-                        color: const Color(0xFFFDBA49).withValues(alpha: 0.9))),
+                child: Text(
+                  l.currentlyAt.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                    color: const Color(0xFFFDBA49).withValues(alpha: 0.9),
+                  ),
+                ),
               ),
               const SizedBox(height: 4),
               Center(
                 child: GestureDetector(
                   onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const MasjidScreen()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MasjidScreen()),
+                    );
                   },
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -476,12 +561,19 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
                       Text(
                         _activeMasjidName ?? l.unknownMasjid,
                         style: const TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.w400, color: Colors.white70,
-                            fontStyle: FontStyle.italic),
+                          fontSize: 22,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.white70,
+                          fontStyle: FontStyle.italic,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(width: 6),
-                      Icon(Icons.chevron_right_rounded, color: Colors.white38, size: 20),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.white38,
+                        size: 20,
+                      ),
                     ],
                   ),
                 ),
@@ -496,12 +588,15 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(l.activePrayer.toUpperCase(),
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.5,
-                            color: Colors.white.withValues(alpha: 0.4))),
+                    Text(
+                      l.activePrayer.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                        color: Colors.white.withValues(alpha: 0.4),
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -509,14 +604,23 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
                       children: [
                         Text(
                           l.prayerName(widget.activeWindow!.prayer.displayName),
-                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: Colors.white),
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
                         ),
-                        Text(l.enteringFocus,
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xFFFDBA49).withValues(alpha: 0.9),
-                                fontStyle: FontStyle.italic)),
+                        Text(
+                          l.enteringFocus,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            color: const Color(
+                              0xFFFDBA49,
+                            ).withValues(alpha: 0.9),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -528,12 +632,15 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(l.nextPrayer.toUpperCase(),
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.5,
-                            color: Colors.white.withValues(alpha: 0.4))),
+                    Text(
+                      l.nextPrayer.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                        color: Colors.white.withValues(alpha: 0.4),
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -541,13 +648,20 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
                       children: [
                         Text(
                           l.prayerName(nextPrayer.$1.displayName),
-                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: Colors.white),
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
                         ),
-                        Text(_formatTime(nextPrayer.$2),
-                            style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white54)),
+                        Text(
+                          _formatTime(nextPrayer.$2),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white54,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -563,18 +677,25 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(l.nextTransition.toUpperCase(),
-                            style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.5,
-                                color: Colors.white.withValues(alpha: 0.4))),
+                        Text(
+                          l.nextTransition.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            color: Colors.white.withValues(alpha: 0.4),
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         Text(
                           nextPrayer != null
                               ? '${l.prayerName(nextPrayer.$1.displayName)} • ${_formatTime(nextPrayer.$2)}'
                               : '—',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.white70),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white70,
+                          ),
                         ),
                       ],
                     ),
@@ -586,19 +707,28 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(l.silencedFor.toUpperCase(),
-                            style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.5,
-                                color: Colors.white.withValues(alpha: 0.4))),
+                        Text(
+                          l.silencedFor.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            color: Colors.white.withValues(alpha: 0.4),
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         Text(
                           _silencedSince != null
-                              ? _formatElapsed(DateTime.now().difference(_silencedSince!))
+                              ? _formatElapsed(
+                                  DateTime.now().difference(_silencedSince!),
+                                )
                               : '—',
                           style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w500, color: Colors.white70)),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white70,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -615,28 +745,44 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
                   opacity: _isExiting ? 0.5 : 1.0,
                   duration: const Duration(milliseconds: 200),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(32),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _isExiting
                             ? const SizedBox(
-                                width: 20, height: 20,
+                                width: 20,
+                                height: 20,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Color(0xFFFDBA49)))
-                            : const Icon(Icons.volume_up_rounded, color: Color(0xFFFDBA49), size: 20),
+                                  strokeWidth: 2,
+                                  color: Color(0xFFFDBA49),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.volume_up_rounded,
+                                color: Color(0xFFFDBA49),
+                                size: 20,
+                              ),
                         const SizedBox(width: 12),
-                        Text(l.exitSilenceMode,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.5,
-                                color: Colors.white70)),
+                        Text(
+                          l.exitSilenceMode,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            color: Colors.white70,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -660,7 +806,9 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
     final s = d.inSeconds.remainder(60);
-    if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m ${s.toString().padLeft(2, '0')}s';
+    if (h > 0) {
+      return '${h}h ${m.toString().padLeft(2, '0')}m ${s.toString().padLeft(2, '0')}s';
+    }
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
@@ -671,15 +819,17 @@ class _SilencedScreenState extends ConsumerState<_SilencedScreen>
     try {
       final controller = ref.read(volumeControllerProvider);
       final eventLog = ref.read(eventLogServiceProvider);
-      await controller.cancelAllAlarms();
-      await controller.removeAllGeofences();
-      await controller.forceRestoreNormal();
-      await ref.read(settingsProvider.notifier).setGeofenceSilenceEnabled(false);
-      await ref.read(settingsProvider.notifier).setTimeBasedSilenceEnabled(false);
-      // Force immediate re-read of geo state
-      final _ = await ref.refresh(geoSilencedProvider.future);
+      final exited = await controller.manualExitSilenceMode();
+      if (!exited) {
+        return;
+      }
+      ref.invalidate(suppressionStateProvider);
+      ref.invalidate(geoSilencedProvider);
       ref.invalidate(activeMasjidGeofencesProvider);
-      await eventLog.log(EventType.restored, 'Exit silence mode — phone restored to normal');
+      await eventLog.log(
+        EventType.restored,
+        'Exit silence mode — current silence session manually exited',
+      );
     } finally {
       if (mounted) setState(() => _isExiting = false);
     }
@@ -781,7 +931,10 @@ class _MasjidModeCard extends ConsumerWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const MasjidScreen()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MasjidScreen()),
+            );
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -794,18 +947,33 @@ class _MasjidModeCard extends ConsumerWidget {
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.mosque_rounded, color: AppColors.primary, size: 22),
+                  child: const Icon(
+                    Icons.mosque_rounded,
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(l.myMasjids,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                       Text(
-                        savedMasjids.isEmpty ? l.tapToAddMasjid : l.savedMasjidsCount(savedMasjids.length),
-                        style: const TextStyle(fontSize: 13, color: AppColors.textTertiary),
+                        l.myMasjids,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        savedMasjids.isEmpty
+                            ? l.tapToAddMasjid
+                            : l.savedMasjidsCount(savedMasjids.length),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textTertiary,
+                        ),
                       ),
                     ],
                   ),
@@ -825,24 +993,39 @@ class _ModeChip extends StatelessWidget {
   final String label;
   final bool enabled;
 
-  const _ModeChip({required this.icon, required this.label, required this.enabled});
+  const _ModeChip({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: enabled ? AppColors.primary.withValues(alpha: 0.08) : AppColors.surfaceVariant,
+        color: enabled
+            ? AppColors.primary.withValues(alpha: 0.08)
+            : AppColors.surfaceVariant,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 10, color: enabled ? AppColors.primary : AppColors.textTertiary),
+          Icon(
+            icon,
+            size: 10,
+            color: enabled ? AppColors.primary : AppColors.textTertiary,
+          ),
           const SizedBox(width: 3),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 9, fontWeight: FontWeight.w600, color: enabled ? AppColors.primary : AppColors.textTertiary)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: enabled ? AppColors.primary : AppColors.textTertiary,
+            ),
+          ),
         ],
       ),
     );
