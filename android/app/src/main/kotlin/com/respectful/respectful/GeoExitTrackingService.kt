@@ -21,6 +21,7 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import android.os.SystemClock
 import org.json.JSONArray
 import kotlin.math.max
 
@@ -34,12 +35,12 @@ class GeoExitTrackingService : Service() {
         private const val CHANNEL_NAME = "Masjid exit tracking"
         private const val NOTIFICATION_ID = 4101
         private const val UPDATE_INTERVAL_MS = 10_000L
-        private const val MIN_UPDATE_DISTANCE_METERS = 10f
         private const val MIN_BUFFER_METERS = 5.0
         private const val BUFFER_FACTOR = 0.03
         private const val EXIT_CHECKS_BEFORE_RESTORE = 2
         private const val FLUTTER_PREFS_NAME = "FlutterSharedPreferences"
         private const val GEO_REENTRY_PROBATION_MS = 2 * 60 * 1000L
+        private const val MAX_LAST_LOCATION_AGE_NS = 60_000_000_000L // 60 seconds
     }
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -102,7 +103,6 @@ class GeoExitTrackingService : Service() {
             UPDATE_INTERVAL_MS,
         )
             .setMinUpdateIntervalMillis(10_000L)
-            .setMinUpdateDistanceMeters(MIN_UPDATE_DISTANCE_METERS)
             .setWaitForAccurateLocation(false)
             .build()
 
@@ -114,6 +114,18 @@ class GeoExitTrackingService : Service() {
 
         isTracking = true
         GeoExitTrackingCoordinator.markRunning(this, true)
+
+        // Immediate check using last known location so a restart while
+        // already stationary/outside doesn't wait for the next callback.
+        // Reject stale locations to avoid false exits from old cached fixes.
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null) {
+                val ageNs = SystemClock.elapsedRealtimeNanos() - location.elapsedRealtimeNanos
+                if (ageNs <= MAX_LAST_LOCATION_AGE_NS) {
+                    checkForExit(location)
+                }
+            }
+        }
     }
 
     private fun stopTrackingAndSelf() {
@@ -147,6 +159,14 @@ class GeoExitTrackingService : Service() {
 
         val radiusMeters = getMasjidRadiusMeters()
         val exitThresholdMeters = radiusMeters + max(MIN_BUFFER_METERS, radiusMeters * BUFFER_FACTOR)
+
+        // Skip low-quality fixes — if the accuracy circle is larger than
+        // the exit buffer, the reading cannot reliably distinguish inside
+        // from outside. Don't reset outsideStreak either; just wait for
+        // a better fix.
+        if (location.hasAccuracy() && location.accuracy > exitThresholdMeters) {
+            return
+        }
 
         if (nearestDistanceMeters < exitThresholdMeters) {
             outsideStreak = 0
