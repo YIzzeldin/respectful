@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat
 object GeoExitTrackingCoordinator {
     private const val FLUTTER_PREFS_NAME = "FlutterSharedPreferences"
     private const val FAST_TRACKING_KEY = "flutter.fast_geo_exit_tracking_enabled"
+    private const val FAST_TRACKING_CHOICE_KEY = "flutter.fast_geo_exit_tracking_user_choice"
     private const val RUNNING_KEY = "geo_exit_tracking_running"
 
     fun sync(context: Context) {
@@ -22,7 +23,12 @@ object GeoExitTrackingCoordinator {
 
     fun isEnabled(context: Context): Boolean {
         val prefs = context.getSharedPreferences(FLUTTER_PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(FAST_TRACKING_KEY, false)
+        val hasUserChoice = prefs.getBoolean(FAST_TRACKING_CHOICE_KEY, false)
+        return if (hasUserChoice) {
+            prefs.getBoolean(FAST_TRACKING_KEY, true)
+        } else {
+            true
+        }
     }
 
     fun markRunning(context: Context, running: Boolean) {

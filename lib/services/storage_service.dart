@@ -19,6 +19,8 @@ class StorageService {
       'require_masjid_dwell_before_silence';
   static const _keyFastGeoExitTrackingEnabled =
       'fast_geo_exit_tracking_enabled';
+  static const _keyFastGeoExitTrackingUserChoice =
+      'fast_geo_exit_tracking_user_choice';
   static const _keyLanguageCode = 'language_code';
   static const _keyLatitude = 'latitude';
   static const _keyLongitude = 'longitude';
@@ -35,6 +37,11 @@ class StorageService {
     final methodName = _prefs.getString(_keyCalculationMethod);
     final timingJson = _prefs.getString(_keyTimingPreferences);
     final silenceLevelName = _prefs.getString(_keySilenceLevel);
+    final hasFastExitChoice =
+        _prefs.getBool(_keyFastGeoExitTrackingUserChoice) ?? false;
+    final fastGeoExitTrackingEnabled = hasFastExitChoice
+        ? (_prefs.getBool(_keyFastGeoExitTrackingEnabled) ?? true)
+        : true;
 
     return AppSettings(
       calculationMethod: _enumByName(
@@ -59,8 +66,7 @@ class StorageService {
           AppSettings.defaultMasjidRadiusMeters,
       requireMasjidDwellBeforeSilence:
           _prefs.getBool(_keyRequireMasjidDwellBeforeSilence) ?? false,
-      fastGeoExitTrackingEnabled:
-          _prefs.getBool(_keyFastGeoExitTrackingEnabled) ?? false,
+      fastGeoExitTrackingEnabled: fastGeoExitTrackingEnabled,
       silenceLevel: _enumByName(
         SilenceLevel.values,
         silenceLevelName,
@@ -109,6 +115,7 @@ class StorageService {
       _keyFastGeoExitTrackingEnabled,
       settings.fastGeoExitTrackingEnabled,
     );
+    await _prefs.setBool(_keyFastGeoExitTrackingUserChoice, true);
     await _prefs.setString(_keySilenceLevel, settings.silenceLevel.name);
     await _prefs.setBool(_keyUsePerPrayerConfig, settings.usePerPrayerConfig);
     await _prefs.setBool(_keyOnboardingComplete, settings.onboardingComplete);

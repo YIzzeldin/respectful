@@ -4,17 +4,26 @@ import 'package:respectful/models/prayer_timing_config.dart';
 
 void main() {
   group('AppSettings', () {
-    test('defaults include 150m radius, 2min calibration, and dwell protection off', () {
-      final settings = AppSettings.defaults();
+    test(
+      'defaults include 150m radius, 2min calibration, and fast exit tracking on',
+      () {
+        final settings = AppSettings.defaults();
 
-      expect(settings.masjidRadiusMeters, AppSettings.defaultMasjidRadiusMeters);
-      expect(settings.masjidRadiusMeters, 150);
-      expect(settings.masjidRadiusKm, 0.15);
-      expect(settings.gpsCalibrationMinutes, AppSettings.defaultGpsCalibrationMinutes);
-      expect(settings.gpsCalibrationMinutes, 2);
-      expect(settings.requireMasjidDwellBeforeSilence, false);
-      expect(settings.fastGeoExitTrackingEnabled, false);
-    });
+        expect(
+          settings.masjidRadiusMeters,
+          AppSettings.defaultMasjidRadiusMeters,
+        );
+        expect(settings.masjidRadiusMeters, 150);
+        expect(settings.masjidRadiusKm, 0.15);
+        expect(
+          settings.gpsCalibrationMinutes,
+          AppSettings.defaultGpsCalibrationMinutes,
+        );
+        expect(settings.gpsCalibrationMinutes, 2);
+        expect(settings.requireMasjidDwellBeforeSilence, false);
+        expect(settings.fastGeoExitTrackingEnabled, true);
+      },
+    );
 
     test('copyWith updates radius and dwell settings', () {
       final settings = AppSettings.defaults().copyWith(
@@ -38,7 +47,7 @@ void main() {
 
       expect(updated.geofenceSilenceEnabled, true);
       expect(updated.requireMasjidDwellBeforeSilence, false);
-      expect(updated.fastGeoExitTrackingEnabled, false);
+      expect(updated.fastGeoExitTrackingEnabled, true);
       expect(updated.masjidRadiusMeters, 300);
     });
   });

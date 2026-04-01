@@ -6,21 +6,33 @@ import 'dart:math' as math;
 /// are only for repair paths when Android misses an enter/exit transition.
 class GeofenceRecoveryPolicy {
   static const int exitChecksBeforeRestore = 2;
-  static const Duration exitCheckInterval = Duration(seconds: 45);
+  static const Duration exitCheckInterval = Duration(seconds: 15);
 
   const GeofenceRecoveryPolicy();
 
-  double boundaryBufferMeters(int radiusMeters) {
+  double enterBoundaryBufferMeters(int radiusMeters) {
     final radius = radiusMeters.clamp(50, 1000).toDouble();
     return math.max(20.0, radius * 0.10);
   }
 
+  double exitBoundaryBufferMeters(int radiusMeters) {
+    final radius = radiusMeters.clamp(50, 1000).toDouble();
+    return math.max(5.0, radius * 0.03);
+  }
+
+  double boundaryBufferMeters(int radiusMeters) {
+    return enterBoundaryBufferMeters(radiusMeters);
+  }
+
   double enterRepairThresholdMeters(int radiusMeters) {
-    return math.max(0.0, radiusMeters.toDouble() - boundaryBufferMeters(radiusMeters));
+    return math.max(
+      0.0,
+      radiusMeters.toDouble() - enterBoundaryBufferMeters(radiusMeters),
+    );
   }
 
   double exitRepairThresholdMeters(int radiusMeters) {
-    return radiusMeters.toDouble() + boundaryBufferMeters(radiusMeters);
+    return radiusMeters.toDouble() + exitBoundaryBufferMeters(radiusMeters);
   }
 
   bool shouldRepairEnter({

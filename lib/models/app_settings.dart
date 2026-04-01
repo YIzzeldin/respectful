@@ -120,7 +120,7 @@ class AppSettings {
     this.gpsCalibrationMinutes = defaultGpsCalibrationMinutes,
     this.masjidRadiusMeters = defaultMasjidRadiusMeters,
     this.requireMasjidDwellBeforeSilence = false,
-    this.fastGeoExitTrackingEnabled = false,
+    this.fastGeoExitTrackingEnabled = true,
     this.silenceLevel = SilenceLevel.totalSilence,
     this.usePerPrayerConfig = false,
     this.onboardingComplete = false,

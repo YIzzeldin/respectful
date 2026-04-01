@@ -17,8 +17,8 @@ class BootReceiver : BroadcastReceiver() {
     companion object {
         const val TAG = "RespectfulBoot"
         const val MASJID_PREFS_NAME = "FlutterSharedPreferences"
-        private const val MIN_BOOT_RECOVERY_BUFFER_METERS = 20.0
-        private const val BOOT_RECOVERY_BUFFER_FACTOR = 0.10
+        private const val MIN_BOOT_RECOVERY_BUFFER_METERS = 5.0
+        private const val BOOT_RECOVERY_BUFFER_FACTOR = 0.03
     }
 
     override fun onReceive(context: Context, intent: Intent) {
