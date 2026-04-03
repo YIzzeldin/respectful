@@ -293,12 +293,15 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Future<void> _restorePhoneNow(WidgetRef ref) async {
-    await ref.read(settingsProvider.notifier).setMasterSilenceEnabled(false);
     final controller = ref.read(volumeControllerProvider);
     final eventLog = ref.read(eventLogServiceProvider);
+    // Tear down native silence state before persisting master OFF.
+    // If the app dies mid-teardown, native recovery paths will still
+    // see master ON and can clean up on next boot/resume.
     await controller.clearManualOverrides();
     await controller.disableTimeBasedSilence();
     await controller.disableGeofenceSilence();
+    await ref.read(settingsProvider.notifier).setMasterSilenceEnabled(false);
     ref.invalidate(suppressionStateProvider);
     ref.invalidate(geoSilencedProvider);
     ref.invalidate(activeMasjidGeofencesProvider);

@@ -82,14 +82,17 @@ object GeofenceManager {
                 .build()
         }
 
-        // Fire INITIAL_TRIGGER_ENTER so Android detects "already inside"
-        // after re-registration. Without this, if geofences are removed
-        // and re-added (app launch, settings change), users already inside
-        // a masjid won't get silenced until the next GPS calibration tick.
-        // Phantom re-entries from deleted masjids are guarded by the
-        // savedIds validation in GeofenceReceiver.handleEnterMasjid().
+        // Fire INITIAL_TRIGGER_ENTER and INITIAL_TRIGGER_DWELL so Android
+        // detects "already inside" after re-registration. ENTER alone is not
+        // enough when dwell protection is enabled — GeofenceReceiver ignores
+        // plain ENTER in dwell mode, so without the DWELL trigger, users
+        // already inside after boot/resume would never get silenced until
+        // they leave and re-enter.
         val request = GeofencingRequest.Builder()
-            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+            .setInitialTrigger(
+                GeofencingRequest.INITIAL_TRIGGER_ENTER or
+                GeofencingRequest.INITIAL_TRIGGER_DWELL
+            )
             .addGeofences(geofenceList)
             .build()
 
