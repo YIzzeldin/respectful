@@ -118,6 +118,14 @@ class BootReceiver : BroadcastReceiver() {
             return
         }
 
+        if (stillInside == null) {
+            // Indeterminate — no fresh location available (stale fix, no permission,
+            // or fused-location failure). Preserve the session and let geofence
+            // re-registration + GPS calibration resolve it once the app is running.
+            Log.d(TAG, "Boot recovery indeterminate — preserving geo session until app confirms")
+            return
+        }
+
         clearGeoSessionAfterBoot(context, prefs, volumeService)
         Log.d(TAG, "Cleared geo session during boot because device is no longer inside a masjid")
     }
