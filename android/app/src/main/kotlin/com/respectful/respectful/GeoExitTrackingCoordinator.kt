@@ -12,12 +12,22 @@ object GeoExitTrackingCoordinator {
 
     fun sync(context: Context) {
         val prefs = context.getSharedPreferences(AlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE)
-        val shouldTrack = prefs.getBoolean("geo_silenced", false) && isEnabled(context)
+        val geoSilenced = prefs.getBoolean("geo_silenced", false)
+        val enabled = isEnabled(context)
+        val shouldTrack = geoSilenced && enabled
         val isRunning = prefs.getBoolean(RUNNING_KEY, false)
 
         when {
-            shouldTrack && !isRunning -> start(context)
-            !shouldTrack && isRunning -> stop(context)
+            shouldTrack && !isRunning -> {
+                NativeEventLog.log(context, "geofenceDebug",
+                    "GeoExitTracking: STARTING service (geo_silenced=$geoSilenced, enabled=$enabled)")
+                start(context)
+            }
+            !shouldTrack && isRunning -> {
+                NativeEventLog.log(context, "geofenceDebug",
+                    "GeoExitTracking: STOPPING service (geo_silenced=$geoSilenced, enabled=$enabled)")
+                stop(context)
+            }
         }
     }
 

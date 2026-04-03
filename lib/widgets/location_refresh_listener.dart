@@ -49,6 +49,11 @@ class _LocationRefreshListenerState
     // Import any native events that happened while app was backgrounded/dead
     ref.invalidate(importNativeEventsProvider);
     ref.invalidate(suppressionStateProvider);
+    // Force geofence re-registration on every resume. Android (especially
+    // Samsung) silently drops geofences after battery optimization, app
+    // updates, or extended background time. Re-registering is cheap and
+    // ensures they stay alive.
+    ref.invalidate(autoGeofenceProvider);
     // Refresh geo state — native side may have changed while app was backgrounded
     ref.invalidate(geoSilencedProvider);
     ref.invalidate(gpsCalibrationProvider);

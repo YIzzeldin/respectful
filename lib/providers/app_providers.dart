@@ -602,35 +602,49 @@ final _geoExitRecoveryTickProvider = StreamProvider<DateTime>((ref) {
   return _periodicImmediate(GeofenceRecoveryPolicy.exitCheckInterval);
 });
 
-final geoExitRecoveryProvider = FutureProvider<void>((ref) async {
-  ref.watch(_geoExitRecoveryTickProvider);
-  final settings = ref.watch(settingsProvider);
+/// Check if the user has left all masjids and clear geo silence after
+/// [GeofenceRecoveryPolicy.exitChecksBeforeRestore] consecutive outside
+/// readings. Extracted so tests can call it directly without depending
+/// on the stream-based tick provider.
+Future<bool> checkGeoExitRecovery(dynamic ref) async {
+  final settings = ref.read(settingsProvider) as AppSettings;
   if (!settings.masterSilenceEnabled || !settings.geofenceSilenceEnabled) {
     _gpsExitRecoveryOutsideStreak = 0;
-    return;
+    return false;
   }
-  if (settings.fastGeoExitTrackingEnabled) {
-    _gpsExitRecoveryOutsideStreak = 0;
-    return;
-  }
+  // NOTE: Do NOT bail out when fastGeoExitTrackingEnabled is true.
+  // The native GeoExitTrackingService provides fast exit detection (10s)
+  // but Android can kill it. This Dart-side recovery (45s checks) runs
+  // as a redundant safety net whenever the app is alive.
+  // Both layers are needed for reliable exit detection.
 
-  final masjids = ref.read(savedMasjidsProvider);
+  final masjids = ref.read(savedMasjidsProvider) as List<SavedMasjid>;
   if (masjids.isEmpty) {
     _gpsExitRecoveryOutsideStreak = 0;
-    return;
+    return false;
   }
 
-  final controller = ref.read(volumeControllerProvider);
+  final controller = ref.read(volumeControllerProvider) as VolumeController;
   final nativeGeoSilenced = await controller.isGeoSilenced();
   if (!nativeGeoSilenced) {
     _gpsExitRecoveryOutsideStreak = 0;
-    return;
+    return false;
   }
 
   try {
-    final locationService = ref.read(locationServiceProvider);
+    final locationService =
+        ref.read(locationServiceProvider) as LocationService;
     final position = await locationService.getCurrentPosition();
-    if (position == null) return;
+    if (position == null) return false;
+
+    // Skip low-quality GPS fixes — indoor GPS can report wildly wrong
+    // positions. If accuracy circle is larger than the exit threshold,
+    // we can't distinguish inside from outside. Don't count it.
+    final exitThreshold = _geofenceRecoveryPolicy
+        .exitRepairThresholdMeters(settings.masjidRadiusMeters);
+    if (position.accuracy > exitThreshold) {
+      return false;
+    }
 
     final nearest = _nearestMasjidMatch(
       masjids: masjids,
@@ -638,7 +652,7 @@ final geoExitRecoveryProvider = FutureProvider<void>((ref) async {
       latitude: position.latitude,
       longitude: position.longitude,
     );
-    if (nearest == null) return;
+    if (nearest == null) return false;
 
     final clearlyOutside = _geofenceRecoveryPolicy.shouldRepairExit(
       nearestDistanceMeters: nearest.distanceMeters,
@@ -646,13 +660,19 @@ final geoExitRecoveryProvider = FutureProvider<void>((ref) async {
     );
     if (!clearlyOutside) {
       _gpsExitRecoveryOutsideStreak = 0;
-      return;
+      return false;
     }
 
     _gpsExitRecoveryOutsideStreak += 1;
     if (_gpsExitRecoveryOutsideStreak <
         GeofenceRecoveryPolicy.exitChecksBeforeRestore) {
-      return;
+      final eventLog = ref.read(eventLogServiceProvider) as EventLogService;
+      await eventLog.log(
+        EventType.info,
+        'Dart exit recovery: outside check #$_gpsExitRecoveryOutsideStreak/${GeofenceRecoveryPolicy.exitChecksBeforeRestore} '
+        '(dist=${nearest.distanceMeters.toStringAsFixed(0)}m)',
+      );
+      return false;
     }
 
     final cleared = await controller.clearGeoSilence();
@@ -661,15 +681,28 @@ final geoExitRecoveryProvider = FutureProvider<void>((ref) async {
       ref.invalidate(suppressionStateProvider);
       ref.invalidate(geoSilencedProvider);
       ref.invalidate(activeMasjidGeofencesProvider);
-      final eventLog = ref.read(eventLogServiceProvider);
+      final eventLog = ref.read(eventLogServiceProvider) as EventLogService;
       await eventLog.log(
         EventType.restored,
-        'Fast GPS exit repair cleared stuck masjid silence after leaving the area',
+        'Dart exit recovery cleared stuck masjid silence '
+        '(dist=${nearest.distanceMeters.toStringAsFixed(0)}m)',
       );
+      return true;
     }
   } catch (_) {
     // GPS failed; do nothing and try again on the next fast exit check.
   }
+  return false;
+}
+
+/// Reset the exit recovery streak counter (for testing).
+void resetGeoExitRecoveryStreak() {
+  _gpsExitRecoveryOutsideStreak = 0;
+}
+
+final geoExitRecoveryProvider = FutureProvider<void>((ref) async {
+  ref.watch(_geoExitRecoveryTickProvider);
+  await checkGeoExitRecovery(ref);
 });
 
 final geoReentryProbationProvider = FutureProvider<void>((ref) async {

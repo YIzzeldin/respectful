@@ -5,8 +5,8 @@ import 'dart:math' as math;
 /// Native geofence transitions remain the primary signal. These thresholds
 /// are only for repair paths when Android misses an enter/exit transition.
 class GeofenceRecoveryPolicy {
-  static const int exitChecksBeforeRestore = 2;
-  static const Duration exitCheckInterval = Duration(seconds: 15);
+  static const int exitChecksBeforeRestore = 3;
+  static const Duration exitCheckInterval = Duration(seconds: 20);
 
   const GeofenceRecoveryPolicy();
 

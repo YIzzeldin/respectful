@@ -31,13 +31,23 @@ class GeofenceReceiver : BroadcastReceiver() {
         val transition = event.geofenceTransition
         val triggeringGeofences = event.triggeringGeofences ?: emptyList()
         val masjidIds = triggeringGeofences.map { it.requestId }
+        val transitionName = when (transition) {
+            Geofence.GEOFENCE_TRANSITION_ENTER -> "ENTER"
+            Geofence.GEOFENCE_TRANSITION_DWELL -> "DWELL"
+            Geofence.GEOFENCE_TRANSITION_EXIT -> "EXIT"
+            else -> "UNKNOWN($transition)"
+        }
 
-        Log.d(TAG, "Geofence transition=$transition, masjids=$masjidIds")
+        Log.d(TAG, "Geofence transition=$transitionName, masjids=$masjidIds")
+        NativeEventLog.log(context, "geofenceDebug",
+            "Received transition=$transitionName for masjids=$masjidIds")
 
         val prefs = context.getSharedPreferences(AlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE)
         val volumeService = VolumeControlService(context)
         if (!isGeofenceSilenceEnabled(context)) {
             Log.d(TAG, "Ignoring geofence transition because geofence silence is disabled")
+            NativeEventLog.log(context, "geofenceDebug",
+                "IGNORED: geofence silence disabled (master or geofence toggle off)")
             return
         }
 
@@ -98,11 +108,15 @@ class GeofenceReceiver : BroadcastReceiver() {
                 .putStringSet("active_masjid_geofences", activeMasjids)
                 .commit()
             Log.d(TAG, "Entered masjid(s) during manual geo override, active set: $activeMasjids")
+            NativeEventLog.log(context, "geofenceDebug",
+                "ENTER skipped: geo_visit_override active. Updated active set: $activeMasjids")
             return
         }
 
         val isAlreadySilencedByGeo = prefs.getBoolean("geo_silenced", false)
         val isSilencedByPrayer = prefs.getBoolean("is_silenced", false)
+        NativeEventLog.log(context, "geofenceDebug",
+            "ENTER state: geo_silenced=$isAlreadySilencedByGeo, prayer_silenced=$isSilencedByPrayer, active=$activeMasjids, valid=$validIds")
 
         if (!isAlreadySilencedByGeo) {
             if (!isSilencedByPrayer) {
@@ -134,6 +148,9 @@ class GeofenceReceiver : BroadcastReceiver() {
     ) {
         val activeMasjids = prefs.getStringSet("active_masjid_geofences", mutableSetOf())?.toMutableSet()
             ?: mutableSetOf()
+        val wasGeoSilenced = prefs.getBoolean("geo_silenced", false)
+        NativeEventLog.log(context, "geofenceDebug",
+            "EXIT received: exiting=$masjidIds, activeBefore=$activeMasjids, geo_silenced=$wasGeoSilenced")
         activeMasjids.removeAll(masjidIds.toSet())
         val isGeoVisitOverride = SuppressionSessionStore.isGeoVisitOverrideActive(prefs)
 

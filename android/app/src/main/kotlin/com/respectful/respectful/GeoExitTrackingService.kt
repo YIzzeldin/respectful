@@ -37,7 +37,7 @@ class GeoExitTrackingService : Service() {
         private const val UPDATE_INTERVAL_MS = 10_000L
         private const val MIN_BUFFER_METERS = 5.0
         private const val BUFFER_FACTOR = 0.03
-        private const val EXIT_CHECKS_BEFORE_RESTORE = 2
+        private const val EXIT_CHECKS_BEFORE_RESTORE = 3
         private const val FLUTTER_PREFS_NAME = "FlutterSharedPreferences"
         private const val GEO_REENTRY_PROBATION_MS = 2 * 60 * 1000L
         private const val MAX_LAST_LOCATION_AGE_NS = 60_000_000_000L // 60 seconds
@@ -169,11 +169,17 @@ class GeoExitTrackingService : Service() {
         }
 
         if (nearestDistanceMeters < exitThresholdMeters) {
+            if (outsideStreak > 0) {
+                NativeEventLog.log(this, "geofenceDebug",
+                    "Exit tracking: back inside (dist=${nearestDistanceMeters.toInt()}m < threshold=${exitThresholdMeters.toInt()}m), streak reset")
+            }
             outsideStreak = 0
             return
         }
 
         outsideStreak += 1
+        NativeEventLog.log(this, "geofenceDebug",
+            "Exit tracking: outside check #$outsideStreak/$EXIT_CHECKS_BEFORE_RESTORE (dist=${nearestDistanceMeters.toInt()}m > threshold=${exitThresholdMeters.toInt()}m)")
         if (outsideStreak < EXIT_CHECKS_BEFORE_RESTORE) return
 
         val cleared = clearGeoSilenceFromTracking(prefs)
@@ -182,7 +188,7 @@ class GeoExitTrackingService : Service() {
         NativeEventLog.log(
             this,
             "geofenceExit",
-            "Fast exit tracking restored after leaving the masjid area",
+            "Fast exit tracking restored after leaving the masjid area (dist=${nearestDistanceMeters.toInt()}m)",
         )
         stopTrackingAndSelf()
     }
