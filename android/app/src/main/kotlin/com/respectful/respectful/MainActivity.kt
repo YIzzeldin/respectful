@@ -221,6 +221,15 @@ class MainActivity : FlutterActivity() {
                     )
                 }
 
+                "removeGeofencesByIds" -> {
+                    val ids = call.argument<List<String>>("ids") ?: emptyList()
+                    GeofenceManager.removeGeofencesByIds(
+                        this,
+                        ids,
+                        onComplete = { result.success(true) },
+                    )
+                }
+
                 "hasBackgroundLocationPermission" -> {
                     val granted = androidx.core.content.ContextCompat.checkSelfPermission(
                         this,

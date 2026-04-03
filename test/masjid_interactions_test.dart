@@ -361,6 +361,9 @@ class _FakeVolumeController extends VolumeController {
   Future<void> syncGeoExitTracking() async {
     syncGeoExitTrackingCalls += 1;
   }
+
+  @override
+  Future<void> removeGeofencesByIds(List<String> ids) async {}
 }
 
 ProviderContainer _container({

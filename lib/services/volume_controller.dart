@@ -125,6 +125,13 @@ class VolumeController {
     await _channel.invokeMethod('removeGeofencesOnly');
   }
 
+  /// Remove specific geofences by ID. Used to clean up stale geofences
+  /// after atomic swap re-registration.
+  Future<void> removeGeofencesByIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    await _channel.invokeMethod('removeGeofencesByIds', {'ids': ids});
+  }
+
   /// Check if background location permission is granted.
   Future<bool> hasBackgroundLocationPermission() async {
     return await _channel.invokeMethod<bool>(

@@ -735,6 +735,12 @@ final activeMasjidGeofencesProvider = FutureProvider<List<String>>((ref) async {
 
 // --- Geofence Auto-Registration ---
 // Watches saved masjids and auto-registers geofences when the list changes.
+// Uses atomic swap: register new geofences first (Play Services replaces
+// matching request IDs), then remove only stale IDs that are no longer needed.
+
+/// Tracks the set of masjid IDs from the last successful registration.
+/// Used to compute which IDs are stale and need removal after re-registration.
+Set<String> _lastRegisteredMasjidIds = {};
 
 final autoGeofenceProvider = FutureProvider<void>((ref) async {
   final masjids = ref.watch(savedMasjidsProvider);
@@ -745,15 +751,12 @@ final autoGeofenceProvider = FutureProvider<void>((ref) async {
       masjids.isEmpty ||
       !settings.geofenceSilenceEnabled) {
     await controller.removeGeofencesOnly();
+    _lastRegisteredMasjidIds = {};
     return;
   }
 
   final hasBgLocation = await controller.hasBackgroundLocationPermission();
   if (!hasBgLocation) return; // Can't register without background location
-
-  // Remove geofences only (not geo state) then re-add.
-  // Uses removeGeofencesOnly to preserve geo_silenced flag during re-registration.
-  await controller.removeGeofencesOnly();
 
   final masjidMaps = masjids
       .map(
@@ -766,9 +769,25 @@ final autoGeofenceProvider = FutureProvider<void>((ref) async {
       )
       .toList();
 
-  await controller.registerGeofences(masjidMaps);
+  final currentIds = masjids.map((m) => m.id).toSet();
+  final success = await controller.registerGeofences(masjidMaps);
 
   final eventLog = ref.read(eventLogServiceProvider);
+  if (!success) {
+    await eventLog.log(
+      EventType.error,
+      'Failed to register ${masjids.length} masjid geofences',
+    );
+    return;
+  }
+
+  // Remove only stale geofence IDs that are no longer in the saved list.
+  final staleIds = _lastRegisteredMasjidIds.difference(currentIds);
+  if (staleIds.isNotEmpty) {
+    await controller.removeGeofencesByIds(staleIds.toList());
+  }
+  _lastRegisteredMasjidIds = currentIds;
+
   await eventLog.log(
     EventType.info,
     'Registered ${masjids.length} masjid geofences',

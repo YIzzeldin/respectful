@@ -74,6 +74,7 @@ class _FakeEventLogService extends EventLogService {
 class _FakeVolumeController extends VolumeController {
   int removeGeofencesOnlyCalls = 0;
   int registerGeofencesCalls = 0;
+  List<String> removedGeofenceIds = [];
   final List<String?> appliedMasjidIds = [];
   final List<(String, int)> appliedPrayerWindows = [];
   bool applySilenceForGeoResult = true;
@@ -86,6 +87,11 @@ class _FakeVolumeController extends VolumeController {
   @override
   Future<void> removeGeofencesOnly() async {
     removeGeofencesOnlyCalls += 1;
+  }
+
+  @override
+  Future<void> removeGeofencesByIds(List<String> ids) async {
+    removedGeofenceIds.addAll(ids);
   }
 
   @override
@@ -225,7 +231,8 @@ void main() {
 
       expect(repaired, true);
       expect(controller.appliedMasjidIds, ['riyadh']);
-      expect(controller.removeGeofencesOnlyCalls, 1);
+      // Atomic swap: no removeGeofencesOnly before registration
+      expect(controller.removeGeofencesOnlyCalls, 0);
       expect(controller.registerGeofencesCalls, 1);
       expect(
         eventLog.messages,
