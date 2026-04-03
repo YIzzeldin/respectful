@@ -69,6 +69,11 @@ Future<bool> repairMasjidPresence(
   if (!settings.masterSilenceEnabled || !settings.geofenceSilenceEnabled) {
     return false;
   }
+  // Respect dwell protection: GPS repair should not silence on a brief
+  // drive-by fix. Let the native DWELL event handle initial silencing.
+  if (settings.requireMasjidDwellBeforeSilence) {
+    return false;
+  }
 
   final masjids = ref.read(savedMasjidsProvider);
   if (masjids.isEmpty) return false;

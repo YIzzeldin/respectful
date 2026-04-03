@@ -316,21 +316,25 @@ class MasjidScreen extends ConsumerWidget {
 
       // Save current location = we ARE here. No GPS check needed.
       // Silence immediately and attach this masjid ID to the active set.
-      final alreadySilenced = await ref.read(volumeControllerProvider).isGeoSilenced();
-      if (settings.geofenceSilenceEnabled && !alreadySilenced) {
+      if (settings.masterSilenceEnabled && settings.geofenceSilenceEnabled) {
+        final alreadySilenced = await ref.read(volumeControllerProvider).isGeoSilenced();
+        // Always call applySilenceForGeo so the native active_masjid_geofences
+        // set learns about this masjid — even when already geo-silenced.
         await ref.read(volumeControllerProvider).applySilenceForGeo(masjidId: masjid.id);
-        final _ = await ref.refresh(geoSilencedProvider.future);
+        if (!alreadySilenced) {
+          final _ = await ref.refresh(geoSilencedProvider.future);
 
-        if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(AppLocalizations.of(context).phoneSilencedSaved(name)),
-                backgroundColor: AppColors.primary,
-              ),
-            );
-            Navigator.popUntil(context, (route) => route.isFirst);
-          }
-          return;
+          if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(AppLocalizations.of(context).phoneSilencedSaved(name)),
+                  backgroundColor: AppColors.primary,
+                ),
+              );
+              Navigator.popUntil(context, (route) => route.isFirst);
+            }
+            return;
+        }
       }
 
       if (context.mounted) {
