@@ -79,6 +79,108 @@ class GeofenceManagerPresenceSyncTest {
     }
 
     @Test
+    fun isLocationFreshAndAccurate_acceptsFreshAndAccurateLocation() {
+        assertTrue(
+            GeofenceManager.isLocationFreshAndAccurate(
+                locationAgeMs = 60_000,    // 1 minute old
+                accuracyMeters = 20f,      // 20m accuracy
+                radiusMeters = 150.0,      // 150m geofence
+            )
+        )
+    }
+
+    @Test
+    fun isLocationFreshAndAccurate_rejectsStaleLocation() {
+        assertFalse(
+            GeofenceManager.isLocationFreshAndAccurate(
+                locationAgeMs = 300_000,   // 5 minutes old
+                accuracyMeters = 20f,      // 20m accuracy
+                radiusMeters = 150.0,
+            )
+        )
+    }
+
+    @Test
+    fun isLocationFreshAndAccurate_rejectsInaccurateLocation() {
+        assertFalse(
+            GeofenceManager.isLocationFreshAndAccurate(
+                locationAgeMs = 60_000,    // 1 minute old
+                accuracyMeters = 500f,     // 500m coarse fix
+                radiusMeters = 150.0,
+            )
+        )
+    }
+
+    @Test
+    fun isLocationFreshAndAccurate_rejectsStaleAndInaccurateLocation() {
+        assertFalse(
+            GeofenceManager.isLocationFreshAndAccurate(
+                locationAgeMs = 300_000,
+                accuracyMeters = 500f,
+                radiusMeters = 150.0,
+            )
+        )
+    }
+
+    @Test
+    fun isLocationFreshAndAccurate_rejectsAtExactMaxAge() {
+        // At exactly the threshold + 1ms, should reject
+        assertFalse(
+            GeofenceManager.isLocationFreshAndAccurate(
+                locationAgeMs = 120_001,   // 2min + 1ms
+                accuracyMeters = 20f,
+                radiusMeters = 150.0,
+            )
+        )
+    }
+
+    @Test
+    fun isLocationFreshAndAccurate_acceptsAtExactMaxAge() {
+        // At exactly 2 minutes, should accept
+        assertTrue(
+            GeofenceManager.isLocationFreshAndAccurate(
+                locationAgeMs = 120_000,
+                accuracyMeters = 20f,
+                radiusMeters = 150.0,
+            )
+        )
+    }
+
+    @Test
+    fun isLocationFreshAndAccurate_rejectsNegativeAge() {
+        assertFalse(
+            GeofenceManager.isLocationFreshAndAccurate(
+                locationAgeMs = -1,
+                accuracyMeters = 20f,
+                radiusMeters = 150.0,
+            )
+        )
+    }
+
+    @Test
+    fun isLocationFreshAndAccurate_rejectsAccuracyEqualToRadius() {
+        assertFalse(
+            GeofenceManager.isLocationFreshAndAccurate(
+                locationAgeMs = 60_000,
+                accuracyMeters = 150f,     // accuracy == radius
+                radiusMeters = 150.0,
+            )
+        )
+    }
+
+    @Test
+    fun isLocationFreshAndAccurate_respectsCustomMaxAge() {
+        assertTrue(
+            GeofenceManager.isLocationFreshAndAccurate(
+                locationAgeMs = 250_000,
+                accuracyMeters = 20f,
+                radiusMeters = 150.0,
+                maxAgeMs = 300_000,        // 5 min custom threshold
+            )
+        )
+    }
+
+    @Test
     fun applyRegisteredMasjidPresence_respectsGeoVisitOverride() {
         prefs.edit()
             .putBoolean("geo_visit_override_active", true)

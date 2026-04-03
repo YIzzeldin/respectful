@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.Geofence
@@ -26,6 +27,7 @@ object GeofenceManager {
     private const val GEOFENCE_NOTIFICATION_RESPONSIVENESS_MS = 10_000
     private const val MIN_BOUNDARY_BUFFER_METERS = 20.0
     private const val BOUNDARY_BUFFER_FACTOR = 0.10
+    private const val PRESENCE_SYNC_MAX_AGE_MS = 2 * 60 * 1000L // 2 minutes
 
     /**
      * Register geofences for a list of masjid locations.
@@ -218,6 +220,15 @@ object GeofenceManager {
         }
     }
 
+    internal fun isLocationFreshAndAccurate(
+        locationAgeMs: Long,
+        accuracyMeters: Float,
+        radiusMeters: Double,
+        maxAgeMs: Long = PRESENCE_SYNC_MAX_AGE_MS,
+    ): Boolean {
+        return locationAgeMs in 0..maxAgeMs && accuracyMeters < radiusMeters
+    }
+
     private fun syncRegisteredMasjidPresence(
         context: Context,
         masjids: List<MasjidLocation>,
@@ -230,6 +241,13 @@ object GeofenceManager {
             .addOnSuccessListener { location ->
                 if (location == null) return@addOnSuccessListener
 
+                val ageMs = (SystemClock.elapsedRealtimeNanos() - location.elapsedRealtimeNanos) / 1_000_000
+                if (!isLocationFreshAndAccurate(ageMs, location.accuracy, radiusMeters)) {
+                    NativeEventLog.log(context, "geofenceDebug",
+                        "Registration presence sync skipped: location age=${ageMs}ms, accuracy=${location.accuracy}m, radius=${radiusMeters}m")
+                    return@addOnSuccessListener
+                }
+
                 val insideMasjidIds = comfortablyInsideMasjidIds(
                     latitude = location.latitude,
                     longitude = location.longitude,
@@ -237,7 +255,7 @@ object GeofenceManager {
                     radiusMeters = radiusMeters,
                 )
                 NativeEventLog.log(context, "geofenceDebug",
-                    "Registration presence sync: location=(${location.latitude}, ${location.longitude}), insideMasjids=$insideMasjidIds")
+                    "Registration presence sync: location=(${location.latitude}, ${location.longitude}), age=${ageMs}ms, accuracy=${location.accuracy}m, insideMasjids=$insideMasjidIds")
                 if (insideMasjidIds.isEmpty()) return@addOnSuccessListener
 
                 val prefs = context.getSharedPreferences(AlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE)
