@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
@@ -19,6 +20,7 @@ class BootReceiver : BroadcastReceiver() {
         const val MASJID_PREFS_NAME = "FlutterSharedPreferences"
         private const val MIN_BOOT_RECOVERY_BUFFER_METERS = 5.0
         private const val BOOT_RECOVERY_BUFFER_FACTOR = 0.03
+        private const val BOOT_LOCATION_MAX_AGE_MS = 2 * 60 * 1000L // 2 minutes
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -187,6 +189,11 @@ class BootReceiver : BroadcastReceiver() {
         } ?: return null
 
         val radiusMeters = flutterPrefs.getInt("flutter.masjid_radius_meters", 150).toDouble()
+        val ageMs = (SystemClock.elapsedRealtimeNanos() - lastLocation.elapsedRealtimeNanos) / 1_000_000
+        if (!GeofenceManager.isLocationFreshAndAccurate(ageMs, lastLocation.accuracy, radiusMeters, BOOT_LOCATION_MAX_AGE_MS)) {
+            Log.d(TAG, "Boot recovery skipped: location age=${ageMs}ms, accuracy=${lastLocation.accuracy}m, radius=${radiusMeters}m")
+            return null
+        }
         val insideThresholdMeters = radiusMeters + max(
             MIN_BOOT_RECOVERY_BUFFER_METERS,
             radiusMeters * BOOT_RECOVERY_BUFFER_FACTOR,

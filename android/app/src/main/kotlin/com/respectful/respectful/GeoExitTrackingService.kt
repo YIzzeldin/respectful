@@ -72,6 +72,7 @@ class GeoExitTrackingService : Service() {
             return START_NOT_STICKY
         }
 
+        createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
         startTracking()
         return START_STICKY
@@ -95,8 +96,6 @@ class GeoExitTrackingService : Service() {
             stopTrackingAndSelf()
             return
         }
-
-        createNotificationChannel()
 
         val request = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,

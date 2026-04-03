@@ -181,6 +181,17 @@ object GeofenceManager {
         val isAlreadySilencedByGeo = prefs.getBoolean("geo_silenced", false)
         val isSilencedByPrayer = prefs.getBoolean("is_silenced", false)
 
+        // Respect dwell protection: if the user opted in and the phone isn't
+        // already geo-silenced, let the DWELL event handle initial silencing
+        // rather than silencing immediately from a cached location.
+        val flutterPrefs = context.getSharedPreferences(FLUTTER_PREFS_NAME, Context.MODE_PRIVATE)
+        val requireDwell = flutterPrefs.getBoolean("flutter.require_masjid_dwell_before_silence", false)
+        if (requireDwell && !isAlreadySilencedByGeo) {
+            NativeEventLog.log(context, "geofenceDebug",
+                "Registration presence sync deferred: dwell protection is enabled")
+            return
+        }
+
         if (isGeoVisitOverride) {
             if (changed) {
                 prefs.edit()
