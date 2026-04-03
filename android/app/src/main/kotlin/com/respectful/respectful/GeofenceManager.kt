@@ -130,6 +130,31 @@ object GeofenceManager {
             }
     }
 
+    /**
+     * Remove specific geofences by their request IDs.
+     * Used to clean up stale geofences after atomic swap re-registration.
+     */
+    fun removeGeofencesByIds(
+        context: Context,
+        ids: List<String>,
+        onComplete: (() -> Unit)? = null,
+    ) {
+        if (ids.isEmpty()) {
+            onComplete?.invoke()
+            return
+        }
+        val geofencingClient = LocationServices.getGeofencingClient(context)
+        geofencingClient.removeGeofences(ids)
+            .addOnSuccessListener {
+                Log.d(TAG, "Removed ${ids.size} stale geofences: $ids")
+                onComplete?.invoke()
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Failed to remove stale geofences: ${e.message}")
+                onComplete?.invoke()
+            }
+    }
+
     private fun getGeofencePendingIntent(context: Context): PendingIntent {
         val intent = Intent(context, GeofenceReceiver::class.java)
         return PendingIntent.getBroadcast(

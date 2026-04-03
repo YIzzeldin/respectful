@@ -81,6 +81,7 @@ class _FakeVolumeController extends VolumeController {
   int disableGeofenceSilenceCalls = 0;
   int removeGeofencesOnlyCalls = 0;
   int registerGeofencesCalls = 0;
+  List<String> removedGeofenceIds = [];
   int clearManualOverridesCalls = 0;
   int clearPrayerOverrideCalls = 0;
   int clearGeoOverrideCalls = 0;
@@ -122,6 +123,11 @@ class _FakeVolumeController extends VolumeController {
   @override
   Future<void> removeGeofencesOnly() async {
     removeGeofencesOnlyCalls += 1;
+  }
+
+  @override
+  Future<void> removeGeofencesByIds(List<String> ids) async {
+    removedGeofenceIds.addAll(ids);
   }
 
   @override
