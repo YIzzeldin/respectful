@@ -74,4 +74,25 @@ void main() {
       );
     });
   });
+
+  group('Exact distance', () {
+    test('returns zero for the same point', () {
+      expect(
+        service.distanceMetersBetween(21.4225, 39.8262, 21.4225, 39.8262),
+        0,
+      );
+    });
+
+    test('returns expected approximate distance in meters', () {
+      final distance = service.distanceMetersBetween(
+        21.4225,
+        39.8262,
+        21.4243,
+        39.8278,
+      );
+
+      expect(distance, greaterThan(250));
+      expect(distance, lessThan(350));
+    });
+  });
 }

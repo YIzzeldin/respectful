@@ -53,6 +53,12 @@
             android:name=".GeofenceReceiver"
             android:exported="false"/>
 
+        <!-- Optional fast exit tracking while geo-silenced -->
+        <service
+            android:name=".GeoExitTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location"/>
+
         <!-- Boot receiver to reschedule alarms + re-register geofences -->
         <receiver
             android:name=".BootReceiver"

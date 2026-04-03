@@ -37,6 +37,12 @@ class AlarmReceiver : BroadcastReceiver() {
 
         when (action) {
             ACTION_SILENCE -> {
+                if (!isMasterSilenceEnabled(context)) {
+                    SuppressionSessionStore.clearPrayerSession(prefs)
+                    SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
+                    Log.d(TAG, "Ignoring silence alarm because master silence is OFF")
+                    return
+                }
                 val prayerName = intent.getStringExtra(EXTRA_PRAYER_NAME) ?: "unknown"
                 val windowEndMs = intent.getLongExtra(EXTRA_WINDOW_END_MS, 0)
                 handleSilence(volumeService, prefs, prayerName, windowEndMs)
@@ -56,20 +62,12 @@ class AlarmReceiver : BroadcastReceiver() {
         val isAlreadySilenced = prefs.getBoolean("is_silenced", false)
         val isGeoSilenced = prefs.getBoolean("geo_silenced", false)
 
-        // Only capture snapshot if NOTHING is currently silencing the phone.
-        // If geo is active, the geo snapshot already has the pre-silence state.
         if (!isAlreadySilenced && !isGeoSilenced) {
-            val state = volumeService.captureCurrentState()
-            prefs.edit()
-                .putInt("saved_ringer_mode", state["ringerMode"] as Int)
-                .putInt("saved_interruption_filter", state["interruptionFilter"] as Int)
-                .putInt("saved_ring_volume", state["ringVolume"] as Int)
-                .putInt("saved_notification_volume", state["notificationVolume"] as Int)
-                .putInt("saved_alarm_volume", state["alarmVolume"] as Int)
-                .putInt("saved_media_volume", state["mediaVolume"] as Int)
-                .putLong("saved_captured_at", state["capturedAt"] as Long)
-                .putString("saved_change_token", state["changeToken"] as String)
-                .commit()
+            SuppressionSessionStore.captureBaselineIfNeeded(
+                volumeService.context,
+                prefs,
+                volumeService,
+            )
         }
 
         val success = volumeService.applySilence()
@@ -107,8 +105,8 @@ class AlarmReceiver : BroadcastReceiver() {
 
         if (userOverridden && !isSafetyRestore) {
             Log.d(TAG, "User overridden, skipping restore")
-            // Clear only prayer state, leave geo state alone
-            clearPrayerSession(prefs)
+            SuppressionSessionStore.clearPrayerSession(prefs)
+            SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
             return
         }
 
@@ -116,67 +114,27 @@ class AlarmReceiver : BroadcastReceiver() {
         // the prayer flag — phone stays silent because of the geofence.
         if (isSilenced && isGeoSilenced) {
             Log.d(TAG, "Prayer ended but geo still active — staying silent")
-            clearPrayerSession(prefs)
+            SuppressionSessionStore.clearPrayerSession(prefs)
             return
         }
 
-        // Determine which saved state to restore from
-        val savedState = if (isGeoSilenced) {
-            mapOf(
-                "ringerMode" to prefs.getInt("geo_saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
-                "interruptionFilter" to prefs.getInt("geo_saved_interruption_filter", android.app.NotificationManager.INTERRUPTION_FILTER_ALL),
-                "ringVolume" to prefs.getInt("geo_saved_ring_volume", 5),
-                "notificationVolume" to prefs.getInt("geo_saved_notification_volume", 5)
-            )
-        } else {
-            mapOf(
-                "ringerMode" to prefs.getInt("saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
-                "interruptionFilter" to prefs.getInt("saved_interruption_filter", android.app.NotificationManager.INTERRUPTION_FILTER_ALL),
-                "ringVolume" to prefs.getInt("saved_ring_volume", 5),
-                "notificationVolume" to prefs.getInt("saved_notification_volume", 5)
-            )
-        }
-
-        val success = volumeService.restoreState(savedState)
+        val success = SuppressionSessionStore.restoreBaseline(
+            volumeService.context,
+            prefs,
+            volumeService,
+        )
 
         if (success) {
-            // Clear only the relevant session — not the other
-            if (isSilenced) clearPrayerSession(prefs)
-            if (isGeoSilenced) clearGeoSession(prefs)
+            if (isSilenced) SuppressionSessionStore.clearPrayerSession(prefs)
+            if (isGeoSilenced) SuppressionSessionStore.clearGeoSession(prefs)
+            SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
             Log.d(TAG, "Restored successfully (safety=$isSafetyRestore)")
         } else {
             Log.e(TAG, "Restore FAILED — session left active for retry")
         }
     }
-
-    /** Clear prayer session state only. */
-    private fun clearPrayerSession(prefs: SharedPreferences) {
-        prefs.edit()
-            .putBoolean("is_silenced", false)
-            .putBoolean("user_overridden", false)
-            .remove("current_prayer")
-            .remove("silenced_at")
-            .remove("window_end_ms")
-            .remove("saved_ringer_mode")
-            .remove("saved_interruption_filter")
-            .remove("saved_ring_volume")
-            .remove("saved_notification_volume")
-            .remove("saved_alarm_volume")
-            .remove("saved_media_volume")
-            .remove("saved_captured_at")
-            .remove("saved_change_token")
-            .commit()
-    }
-
-    /** Clear geo session state only. */
-    private fun clearGeoSession(prefs: SharedPreferences) {
-        prefs.edit()
-            .putBoolean("geo_silenced", false)
-            .remove("active_masjid_geofences")
-            .remove("geo_saved_ringer_mode")
-            .remove("geo_saved_interruption_filter")
-            .remove("geo_saved_ring_volume")
-            .remove("geo_saved_notification_volume")
-            .commit()
+    private fun isMasterSilenceEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        return prefs.getBoolean("flutter.master_silence_enabled", true)
     }
 }

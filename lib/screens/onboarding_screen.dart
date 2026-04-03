@@ -39,25 +39,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       child: Column(
         children: [
           const SizedBox(height: 48),
-          // Mosque illustration placeholder
-          Container(
-            width: double.infinity,
-            height: 200,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary.withValues(alpha: 0.15),
-                  AppColors.primary.withValues(alpha: 0.05),
-                ],
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-              ),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Icon(
-              Icons.mosque_rounded,
-              size: 80,
-              color: AppColors.primary.withValues(alpha: 0.6),
+          // App icon
+          ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: Image.asset(
+              'assets/respectful_icon.png',
+              width: 160,
+              height: 160,
+              filterQuality: FilterQuality.high,
             ),
           ),
           const SizedBox(height: 32),

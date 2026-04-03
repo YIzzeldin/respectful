@@ -10,6 +10,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.respectful/volume_control"
+    private val GEO_REENTRY_PROBATION_MS = 2 * 60 * 1000L
     private lateinit var volumeService: VolumeControlService
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -19,81 +20,139 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "captureCurrentState" -> {
-                    val state = volumeService.captureCurrentState()
-                    result.success(state)
+                    result.success(volumeService.captureCurrentState())
                 }
+
                 "applySilence" -> {
-                    val success = volumeService.applySilence()
-                    result.success(success)
+                    result.success(volumeService.applySilence())
                 }
+
                 "restoreState" -> {
                     @Suppress("UNCHECKED_CAST")
                     val state = call.arguments as? Map<String, Any>
                     if (state != null) {
-                        val success = volumeService.restoreState(state)
-                        result.success(success)
+                        result.success(volumeService.restoreState(state))
                     } else {
                         result.error("INVALID_ARGS", "State map is required", null)
                     }
                 }
+
                 "hasDndPermission" -> {
                     result.success(volumeService.hasDndPermission())
                 }
+
                 "openDndSettings" -> {
-                    val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
-                    startActivity(intent)
+                    startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
                     result.success(true)
                 }
+
                 "hasExactAlarmPermission" -> {
                     result.success(volumeService.hasExactAlarmPermission())
                 }
+
                 "openExactAlarmSettings" -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                        startActivity(intent)
+                        startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
                     }
                     result.success(true)
                 }
+
                 "getCurrentRingerMode" -> {
                     result.success(volumeService.getCurrentRingerMode())
                 }
+
                 "getCurrentInterruptionFilter" -> {
                     result.success(volumeService.getCurrentInterruptionFilter())
                 }
+
                 "scheduleSilenceAlarm" -> {
-                    val triggerAtMs = (call.argument<Number>("triggerAtMs"))?.toLong() ?: 0
+                    val triggerAtMs = (call.argument<Number>("triggerAtMs"))?.toLong() ?: 0L
                     val prayerName = call.argument<String>("prayerName") ?: "test"
-                    val windowEndMs = (call.argument<Number>("windowEndMs"))?.toLong() ?: 0
+                    val windowEndMs = (call.argument<Number>("windowEndMs"))?.toLong() ?: 0L
                     val requestCode = (call.argument<Number>("requestCode"))?.toInt() ?: 1000
 
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
-                    prefs.edit().putLong("window_end_ms", windowEndMs).apply()
+                    prefs.edit().putLong("window_end_ms", windowEndMs).commit()
 
                     AlarmScheduler.scheduleSilenceAlarm(this, triggerAtMs, prayerName, windowEndMs, requestCode)
                     result.success(true)
                 }
+
                 "scheduleRestoreAlarm" -> {
-                    val triggerAtMs = (call.argument<Number>("triggerAtMs"))?.toLong() ?: 0
+                    val triggerAtMs = (call.argument<Number>("triggerAtMs"))?.toLong() ?: 0L
                     val requestCode = (call.argument<Number>("requestCode"))?.toInt() ?: 2000
 
                     AlarmScheduler.scheduleRestoreAlarm(this, triggerAtMs, requestCode)
                     AlarmScheduler.scheduleSafetyRestoreAlarm(this, triggerAtMs + 5 * 60 * 1000)
                     result.success(true)
                 }
+
                 "cancelAllAlarms" -> {
                     AlarmScheduler.cancelAllAlarms(this)
                     result.success(true)
                 }
+
+                "disableTimeBasedSilence" -> {
+                    AlarmScheduler.cancelAllAlarms(this)
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    val isPrayerActive = prefs.getBoolean("is_silenced", false)
+                    val isGeoActive = prefs.getBoolean("geo_silenced", false)
+
+                    if (isPrayerActive && !isGeoActive) {
+                        val restored = SuppressionSessionStore.restoreBaseline(
+                            this,
+                            prefs,
+                            volumeService,
+                        )
+                        if (!restored) {
+                            result.success(false)
+                            return@setMethodCallHandler
+                        }
+                    }
+
+                    SuppressionSessionStore.clearPrayerSession(prefs)
+                    SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
+                    result.success(true)
+                }
+
+                "applySilenceForPrayerWindow" -> {
+                    val prayerName = call.argument<String>("prayerName") ?: "unknown"
+                    val windowEndMs = (call.argument<Number>("windowEndMs"))?.toLong() ?: 0L
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    val isPrayerSilenced = prefs.getBoolean("is_silenced", false)
+                    val isGeoSilenced = prefs.getBoolean("geo_silenced", false)
+
+                    val success = when {
+                        isPrayerSilenced -> true
+                        isGeoSilenced -> true
+                        else -> {
+                            SuppressionSessionStore.captureBaselineIfNeeded(this, prefs, volumeService)
+                            volumeService.applySilence()
+                        }
+                    }
+
+                    if (success) {
+                        prefs.edit()
+                            .putBoolean("is_silenced", true)
+                            .putBoolean("user_overridden", false)
+                            .putString("current_prayer", prayerName)
+                            .putLong("silenced_at", System.currentTimeMillis())
+                            .putLong("window_end_ms", windowEndMs)
+                            .commit()
+                    }
+
+                    result.success(success)
+                }
+
                 "openBatterySettings" -> {
                     try {
-                        val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                        startActivity(intent)
-                    } catch (e: Exception) {
-                        val intent = Intent(Settings.ACTION_SETTINGS)
-                        startActivity(intent)
+                        startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    } catch (_: Exception) {
+                        startActivity(Intent(Settings.ACTION_SETTINGS))
                     }
                     result.success(true)
                 }
+
                 "registerGeofences" -> {
                     @Suppress("UNCHECKED_CAST")
                     val masjidsRaw = call.argument<List<Map<String, Any>>>("masjids") ?: emptyList()
@@ -106,148 +165,352 @@ class MainActivity : FlutterActivity() {
                         )
                     }
                     GeofenceManager.registerGeofences(
-                        this, masjids,
+                        this,
+                        masjids,
                         onSuccess = { result.success(true) },
-                        onFailure = { error -> result.success(false) },
+                        onFailure = { result.success(false) },
                     )
                 }
+
                 "removeAllGeofences" -> {
-                    GeofenceManager.removeAllGeofences(this,
+                    GeofenceManager.removeAllGeofences(
+                        this,
                         onComplete = {
-                            // Also clear geo state from SharedPreferences
                             val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
-                            prefs.edit()
-                                .putBoolean("geo_silenced", false)
-                                .remove("active_masjid_geofences")
-                                .remove("geo_saved_ringer_mode")
-                                .remove("geo_saved_interruption_filter")
-                                .remove("geo_saved_ring_volume")
-                                .remove("geo_saved_notification_volume")
-                                .commit()
+                            SuppressionSessionStore.clearGeoSession(prefs)
+                            SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
+                            GeoExitTrackingCoordinator.sync(this)
                             result.success(true)
-                        }
+                        },
                     )
                 }
+
+                "disableGeofenceSilence" -> {
+                    GeofenceManager.removeAllGeofences(
+                        this,
+                        onComplete = {
+                            val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                            val isPrayerActive = prefs.getBoolean("is_silenced", false)
+                            val isGeoActive = prefs.getBoolean("geo_silenced", false)
+                            val restored = if (isGeoActive && !isPrayerActive) {
+                                SuppressionSessionStore.restoreBaseline(
+                                    this,
+                                    prefs,
+                                    volumeService,
+                                )
+                            } else {
+                                true
+                            }
+
+                            if (!restored) {
+                                result.success(false)
+                            } else {
+                                SuppressionSessionStore.clearGeoSession(prefs)
+                                SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
+                                GeoExitTrackingCoordinator.sync(this)
+                                result.success(true)
+                            }
+                        },
+                    )
+                }
+
                 "removeGeofencesOnly" -> {
-                    // Remove geofences but do NOT clear geo_silenced state
-                    // Used for re-registration, not for disabling
-                    GeofenceManager.removeAllGeofences(this,
-                        onComplete = { result.success(true) }
+                    GeofenceManager.removeAllGeofences(
+                        this,
+                        onComplete = { result.success(true) },
                     )
                 }
+
                 "hasBackgroundLocationPermission" -> {
                     val granted = androidx.core.content.ContextCompat.checkSelfPermission(
                         this,
-                        android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                        android.Manifest.permission.ACCESS_BACKGROUND_LOCATION,
                     ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                     result.success(granted)
                 }
+
                 "applySilenceForGeo" -> {
+                    val masjidId = call.argument<String>("masjidId")
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
                     val alreadyGeo = prefs.getBoolean("geo_silenced", false)
                     val isPrayerSilenced = prefs.getBoolean("is_silenced", false)
+                    val geoVisitOverrideActive = SuppressionSessionStore.isGeoVisitOverrideActive(prefs)
 
-                    // Only capture geo snapshot if nothing is currently silencing.
-                    // If prayer is active, the phone is already silenced — capturing
-                    // now would store a silenced state as the "restore" target.
-                    // Same guard as GeofenceReceiver.handleEnterMasjid.
-                    if (!alreadyGeo && !isPrayerSilenced) {
-                        val state = volumeService.captureCurrentState()
-                        prefs.edit()
-                            .putInt("geo_saved_ringer_mode", state["ringerMode"] as Int)
-                            .putInt("geo_saved_interruption_filter", state["interruptionFilter"] as Int)
-                            .putInt("geo_saved_ring_volume", state["ringVolume"] as Int)
-                            .putInt("geo_saved_notification_volume", state["notificationVolume"] as Int)
-                            .commit()
+                    val activeMasjids = prefs.getStringSet("active_masjid_geofences", mutableSetOf())
+                        ?.toMutableSet()
+                        ?: mutableSetOf()
+                    if (masjidId != null) {
+                        activeMasjids.add(masjidId)
                     }
 
-                    val success = volumeService.applySilence()
+                    if (geoVisitOverrideActive) {
+                        prefs.edit()
+                            .putStringSet("active_masjid_geofences", activeMasjids)
+                            .commit()
+                        result.success(false)
+                        return@setMethodCallHandler
+                    }
+
+                    val success = when {
+                        alreadyGeo -> true
+                        isPrayerSilenced -> true
+                        else -> {
+                            SuppressionSessionStore.captureBaselineIfNeeded(this, prefs, volumeService)
+                            volumeService.applySilence()
+                        }
+                    }
+
                     if (success) {
-                        prefs.edit().putBoolean("geo_silenced", true).commit()
+                        prefs.edit()
+                            .putBoolean("geo_silenced", true)
+                            .putLong("geo_silenced_at", System.currentTimeMillis())
+                            .putStringSet("active_masjid_geofences", activeMasjids)
+                            .commit()
+                        GeoExitTrackingCoordinator.sync(this)
                     }
                     result.success(success)
                 }
+
+                "clearGeoSilenceForMasjid" -> {
+                    val masjidId = call.argument<String>("masjidId") ?: ""
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    val wasGeoSilenced = prefs.getBoolean("geo_silenced", false)
+                    val geoVisitOverrideActive = SuppressionSessionStore.isGeoVisitOverrideActive(prefs)
+
+                    if (!wasGeoSilenced && !geoVisitOverrideActive) {
+                        result.success("not_silenced")
+                        return@setMethodCallHandler
+                    }
+
+                    val activeMasjids = prefs.getStringSet("active_masjid_geofences", mutableSetOf())
+                        ?.toMutableSet()
+                        ?: mutableSetOf()
+
+                    if (activeMasjids.isEmpty()) {
+                        Log.d("Respectful", "Active set empty but geo session exists on delete of $masjidId")
+                    } else {
+                        val wasInSet = activeMasjids.remove(masjidId)
+                        if (!wasInSet) {
+                            result.success("not_at_deleted")
+                            return@setMethodCallHandler
+                        }
+                    }
+
+                    if (activeMasjids.isNotEmpty()) {
+                        prefs.edit()
+                            .putStringSet("active_masjid_geofences", activeMasjids)
+                            .commit()
+                        GeoExitTrackingCoordinator.sync(this)
+                        result.success("still_at_other")
+                        return@setMethodCallHandler
+                    }
+
+                    val isPrayerActive = prefs.getBoolean("is_silenced", false)
+                    if (geoVisitOverrideActive) {
+                        SuppressionSessionStore.clearGeoSession(prefs)
+                        SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
+                        Log.d("Respectful", "Deleted active masjid $masjidId — cleared geo override")
+                    } else if (!isPrayerActive) {
+                        val restored = SuppressionSessionStore.restoreBaseline(
+                            this,
+                            prefs,
+                            volumeService,
+                        )
+                        if (!restored) {
+                            result.success("not_silenced")
+                            return@setMethodCallHandler
+                        }
+                        SuppressionSessionStore.clearGeoSession(prefs)
+                        SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
+                        Log.d("Respectful", "Deleted active masjid $masjidId — restored phone")
+                    } else {
+                        SuppressionSessionStore.clearGeoSession(prefs)
+                        Log.d("Respectful", "Deleted active masjid $masjidId — prayer active, keeping silent")
+                    }
+                    GeoExitTrackingCoordinator.sync(this)
+                    result.success("restored")
+                }
+
                 "clearGeoSilence" -> {
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
                     val isPrayerActive = prefs.getBoolean("is_silenced", false)
 
                     if (isPrayerActive) {
-                        // Prayer is active — just clear geo flags, keep phone silent
-                        prefs.edit()
-                            .putBoolean("geo_silenced", false)
-                            .remove("active_masjid_geofences")
-                            .remove("geo_saved_ringer_mode")
-                            .remove("geo_saved_interruption_filter")
-                            .remove("geo_saved_ring_volume")
-                            .remove("geo_saved_notification_volume")
-                            .commit()
+                        SuppressionSessionStore.clearGeoSession(prefs)
                         Log.d("Respectful", "Cleared geo state, prayer still active — staying silent")
                     } else {
-                        // Nothing else keeping it silent — restore from geo snapshot
-                        val savedState = mapOf(
-                            "ringerMode" to prefs.getInt("geo_saved_ringer_mode", android.media.AudioManager.RINGER_MODE_NORMAL),
-                            "interruptionFilter" to prefs.getInt("geo_saved_interruption_filter", android.app.NotificationManager.INTERRUPTION_FILTER_ALL),
-                            "ringVolume" to prefs.getInt("geo_saved_ring_volume", 5),
-                            "notificationVolume" to prefs.getInt("geo_saved_notification_volume", 5)
+                        val restored = SuppressionSessionStore.restoreBaseline(
+                            this,
+                            prefs,
+                            volumeService,
                         )
-                        volumeService.restoreState(savedState)
-                        prefs.edit()
-                            .putBoolean("geo_silenced", false)
-                            .remove("active_masjid_geofences")
-                            .remove("geo_saved_ringer_mode")
-                            .remove("geo_saved_interruption_filter")
-                            .remove("geo_saved_ring_volume")
-                            .remove("geo_saved_notification_volume")
-                            .commit()
+                        if (!restored) {
+                            result.success(false)
+                            return@setMethodCallHandler
+                        }
+                        SuppressionSessionStore.clearGeoSession(prefs)
+                        SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
                         Log.d("Respectful", "Cleared geo state and restored phone")
                     }
+                    SuppressionSessionStore.setGeoReentryProbationUntil(
+                        prefs,
+                        System.currentTimeMillis() + GEO_REENTRY_PROBATION_MS,
+                    )
+                    GeoExitTrackingCoordinator.sync(this)
                     result.success(true)
                 }
+
+                "manualExitSilenceMode" -> {
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    val isPrayerActive = prefs.getBoolean("is_silenced", false)
+                    val isGeoActive = prefs.getBoolean("geo_silenced", false)
+
+                    if (!isPrayerActive && !isGeoActive) {
+                        result.success(true)
+                        return@setMethodCallHandler
+                    }
+
+                    val restored = SuppressionSessionStore.restoreBaseline(
+                        this,
+                        prefs,
+                        volumeService,
+                    )
+                    if (!restored) {
+                        result.success(false)
+                        return@setMethodCallHandler
+                    }
+
+                    if (isPrayerActive) {
+                        SuppressionSessionStore.clearPrayerSession(
+                            prefs,
+                            preserveOverride = true,
+                        )
+                    }
+                    if (isGeoActive) {
+                        SuppressionSessionStore.markGeoVisitOverridden(prefs)
+                    }
+                    SuppressionSessionStore.maybeClearBaselineIfUnused(prefs)
+                    GeoExitTrackingCoordinator.sync(this)
+                    result.success(true)
+                }
+
+                "clearManualOverrides" -> {
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    prefs.edit()
+                        .putBoolean("user_overridden", false)
+                        .putBoolean("geo_visit_override_active", false)
+                        .remove("geo_reentry_probation_until_ms")
+                        .commit()
+                    result.success(true)
+                }
+
+                "clearPrayerOverride" -> {
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    prefs.edit()
+                        .putBoolean("user_overridden", false)
+                        .commit()
+                    result.success(true)
+                }
+
+                "clearGeoOverride" -> {
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    prefs.edit()
+                        .putBoolean("geo_visit_override_active", false)
+                        .remove("geo_reentry_probation_until_ms")
+                        .commit()
+                    result.success(true)
+                }
+
                 "forceRestoreNormal" -> {
-                    val nm = getSystemService(android.app.NotificationManager::class.java)
-                    val am = getSystemService(android.media.AudioManager::class.java) as android.media.AudioManager
+                    val notificationManager = getSystemService(android.app.NotificationManager::class.java)
+                    val audioManager =
+                        getSystemService(android.media.AudioManager::class.java) as android.media.AudioManager
+
                     try {
-                        // Set DND to ALL (normal — allow everything)
-                        nm.setInterruptionFilter(android.app.NotificationManager.INTERRUPTION_FILTER_ALL)
-                        // Set ringer to NORMAL
-                        am.ringerMode = android.media.AudioManager.RINGER_MODE_NORMAL
-                        // Clear all silence state
+                        notificationManager.setInterruptionFilter(
+                            android.app.NotificationManager.INTERRUPTION_FILTER_ALL,
+                        )
+                        audioManager.ringerMode = android.media.AudioManager.RINGER_MODE_NORMAL
+
                         val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
                         prefs.edit()
                             .putBoolean("is_silenced", false)
                             .putBoolean("geo_silenced", false)
                             .putBoolean("user_overridden", false)
+                            .putBoolean("geo_visit_override_active", false)
                             .remove("active_masjid_geofences")
                             .remove("current_prayer")
                             .remove("silenced_at")
                             .remove("window_end_ms")
+                            .remove("geo_silenced_at")
+                            .remove("geo_reentry_probation_until_ms")
                             .remove("saved_ringer_mode")
                             .remove("saved_interruption_filter")
                             .remove("saved_ring_volume")
                             .remove("saved_notification_volume")
+                            .remove("saved_alarm_volume")
+                            .remove("saved_media_volume")
+                            .remove("saved_captured_at")
+                            .remove("saved_change_token")
                             .remove("geo_saved_ringer_mode")
                             .remove("geo_saved_interruption_filter")
                             .remove("geo_saved_ring_volume")
                             .remove("geo_saved_notification_volume")
                             .commit()
+                        SuppressionSessionStore.clearBaseline(prefs)
+                        GeoExitTrackingCoordinator.sync(this)
                         result.success(true)
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         result.success(false)
                     }
                 }
+
                 "readNativeEvents" -> {
-                    val events = NativeEventLog.readAndClear(this)
-                    result.success(events)
+                    result.success(NativeEventLog.readAndClear(this))
                 }
+
+                "getSuppressionState" -> {
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    val activeMasjidIds = prefs.getStringSet("active_masjid_geofences", emptySet())
+                        ?.toList()
+                        ?: emptyList()
+                    result.success(
+                        mapOf(
+                            "isPrayerSilenced" to prefs.getBoolean("is_silenced", false),
+                            "isGeoSilenced" to prefs.getBoolean("geo_silenced", false),
+                            "currentPrayer" to prefs.getString("current_prayer", null),
+                            "prayerWindowEndMs" to prefs.getLong("window_end_ms", 0),
+                            "prayerSilencedAtMs" to prefs.getLong("silenced_at", 0),
+                            "geoSilencedAtMs" to prefs.getLong("geo_silenced_at", 0),
+                            "userOverridden" to prefs.getBoolean("user_overridden", false),
+                            "geoVisitOverrideActive" to SuppressionSessionStore.isGeoVisitOverrideActive(prefs),
+                            "geoReentryProbationUntilMs" to SuppressionSessionStore.getGeoReentryProbationUntil(prefs),
+                            "activeMasjidIds" to activeMasjidIds,
+                        ),
+                    )
+                }
+
                 "isGeoSilenced" -> {
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
                     result.success(prefs.getBoolean("geo_silenced", false))
                 }
+
+                "getGeoSilencedAt" -> {
+                    val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
+                    result.success(prefs.getLong("geo_silenced_at", 0))
+                }
+
                 "getActiveMasjidGeofences" -> {
                     val prefs = getSharedPreferences(AlarmReceiver.PREFS_NAME, MODE_PRIVATE)
                     val set = prefs.getStringSet("active_masjid_geofences", emptySet()) ?: emptySet()
                     result.success(set.toList())
                 }
+
+                "syncGeoExitTracking" -> {
+                    GeoExitTrackingCoordinator.sync(this)
+                    result.success(true)
+                }
+
                 else -> {
                     result.notImplemented()
                 }

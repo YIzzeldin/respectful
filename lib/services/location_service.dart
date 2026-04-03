@@ -29,10 +29,20 @@ class LocationService {
     required double currentLng,
     double thresholdKm = 10.0,
   }) {
-    final distanceMeters = _haversineDistance(
+    final distanceMeters = distanceMetersBetween(
       storedLat, storedLng, currentLat, currentLng,
     );
     return distanceMeters > thresholdKm * 1000;
+  }
+
+  /// Exact distance between two GPS points in meters.
+  double distanceMetersBetween(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
+    return _haversineDistance(lat1, lng1, lat2, lng2);
   }
 
   /// Haversine formula to calculate distance between two GPS points in meters.

@@ -8,7 +8,6 @@ import '../l10n/app_localizations.dart';
 import '../models/saved_masjid.dart';
 import '../providers/app_providers.dart';
 import '../services/event_log_service.dart';
-import '../services/gps_retry_service.dart';
 import 'map_picker_screen.dart';
 
 class MasjidScreen extends ConsumerWidget {
@@ -223,6 +222,7 @@ class MasjidScreen extends ConsumerWidget {
 
   Future<void> _addCurrentLocation(BuildContext context, WidgetRef ref) async {
     try {
+      final settings = ref.read(settingsProvider);
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (context.mounted) {
@@ -246,7 +246,7 @@ class MasjidScreen extends ConsumerWidget {
 
       if (!context.mounted) return;
 
-      // Check if there's already a saved masjid within 200m
+      // Check if there's already a saved masjid within the configured radius.
       final existing = ref.read(savedMasjidsProvider);
       final locationService = ref.read(locationServiceProvider);
       final nearbyMasjid = existing.cast<SavedMasjid?>().firstWhere(
@@ -255,7 +255,7 @@ class MasjidScreen extends ConsumerWidget {
           storedLng: m.longitude,
           currentLat: position.latitude,
           currentLng: position.longitude,
-          thresholdKm: 0.2,
+          thresholdKm: settings.masjidRadiusKm,
         ),
         orElse: () => null,
       );
@@ -310,38 +310,30 @@ class MasjidScreen extends ConsumerWidget {
 
       await ref.read(savedMasjidsProvider.notifier).add(masjid);
       await ref.read(eventLogServiceProvider).log(
-            EventType.info,
+            EventType.masjidAdded,
             'Saved masjid: $name (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})',
           );
 
-      // Only check location if NOT already silenced (if already silenced,
-      // the user is already at a known masjid — no need to recheck)
-      final settings = ref.read(settingsProvider);
-      // Read native state directly — cached provider may be stale
-      final alreadySilenced = await ref.read(volumeControllerProvider).isGeoSilenced();
-      if (settings.geofenceSilenceEnabled && !alreadySilenced) {
-        final locationService = ref.read(locationServiceProvider);
-        final isNearby = !locationService.hasMovedSignificantly(
-          storedLat: masjid.latitude,
-          storedLng: masjid.longitude,
-          currentLat: position.latitude,
-          currentLng: position.longitude,
-          thresholdKm: 0.2,
-        );
-        if (isNearby) {
-          await ref.read(volumeControllerProvider).applySilenceForGeo();
-          ref.invalidate(geoSilencedProvider);
+      // Save current location = we ARE here. No GPS check needed.
+      // Silence immediately and attach this masjid ID to the active set.
+      if (settings.masterSilenceEnabled && settings.geofenceSilenceEnabled) {
+        final alreadySilenced = await ref.read(volumeControllerProvider).isGeoSilenced();
+        // Always call applySilenceForGeo so the native active_masjid_geofences
+        // set learns about this masjid — even when already geo-silenced.
+        await ref.read(volumeControllerProvider).applySilenceForGeo(masjidId: masjid.id);
+        if (!alreadySilenced) {
+          final _ = await ref.refresh(geoSilencedProvider.future);
 
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(AppLocalizations.of(context).phoneSilencedSaved(name)),
-                backgroundColor: AppColors.primary,
-              ),
-            );
-            Navigator.popUntil(context, (route) => route.isFirst);
-          }
-          return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(AppLocalizations.of(context).phoneSilencedSaved(name)),
+                  backgroundColor: AppColors.primary,
+                ),
+              );
+              Navigator.popUntil(context, (route) => route.isFirst);
+            }
+            return;
         }
       }
 
@@ -398,6 +390,7 @@ class MasjidScreen extends ConsumerWidget {
   }
 
   void _showMasjidOptions(BuildContext context, WidgetRef ref, SavedMasjid masjid) {
+    final settings = ref.read(settingsProvider);
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
@@ -425,7 +418,8 @@ class MasjidScreen extends ConsumerWidget {
                 Icon(Icons.radar, size: 14, color: AppColors.primary),
                 const SizedBox(width: 6),
                 Text(
-                  AppLocalizations.of(context).geofenceActive,
+                  AppLocalizations.of(context)
+                      .geofenceActiveWithRadius(settings.masjidRadiusMeters),
                   style: TextStyle(fontSize: 12, color: AppColors.primary),
                 ),
               ],
@@ -510,45 +504,24 @@ class MasjidScreen extends ConsumerWidget {
       ),
     );
     if (confirm == true) {
+      final controller = ref.read(volumeControllerProvider);
+      final eventLog = ref.read(eventLogServiceProvider);
+
+      // Remove from saved list first
       await ref.read(savedMasjidsProvider.notifier).remove(masjid.id);
 
-      final controller = ref.read(volumeControllerProvider);
-      final remaining = ref.read(savedMasjidsProvider);
+      // Ask native to clear geo silence for this specific masjid.
+      // Native checks if this masjid was in the active set:
+      //   - "not_silenced": phone wasn't geo-silenced → no action
+      //   - "not_at_deleted": silenced but by a different masjid → no change
+      //   - "still_at_other": was at deleted but also at another → stay silent
+      //   - "restored": was at deleted, no others → phone restored
+      final result = await controller.clearGeoSilenceForMasjid(masjid.id);
 
-      if (remaining.isEmpty) {
-        // No masjids left — force clear everything
-        await controller.forceRestoreNormal();
-      } else {
-        // Get GPS to decide if we should stay silenced
-        if (!context.mounted) return;
-        final position = await GpsRetryService.getPositionWithRetry(context: context);
-        if (position != null) {
-          final locationService = ref.read(locationServiceProvider);
-
-          // Are we near any REMAINING masjid?
-          final nearRemaining = remaining.any((m) =>
-            !locationService.hasMovedSignificantly(
-              storedLat: m.latitude,
-              storedLng: m.longitude,
-              currentLat: position.latitude,
-              currentLng: position.longitude,
-              thresholdKm: 0.2,
-            ),
-          );
-
-          if (!nearRemaining) {
-            // Not near any remaining masjid — clear silence
-            // Use forceRestoreNormal to hard-clear ALL native state
-            // (including stale active_masjid_geofences from old geofence events)
-            await controller.forceRestoreNormal();
-          }
-          // If near remaining — do nothing, stay silenced
-        }
-      }
-
-      // Wait for geofence re-registration to settle before refreshing UI
-      // (autoGeofenceProvider re-runs async after savedMasjidsProvider changes)
-      await Future.delayed(const Duration(seconds: 2));
+      await eventLog.log(
+        result == 'restored' ? EventType.restored : EventType.masjidDeleted,
+        'Deleted masjid: ${masjid.name} ($result)',
+      );
 
       // Force UI refresh
       final _ = await ref.refresh(geoSilencedProvider.future);

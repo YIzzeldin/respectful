@@ -72,6 +72,7 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
     if (_selectedLocation == null) return;
 
     setState(() => _isLoading = true);
+    final settings = ref.read(settingsProvider);
 
     // Check for nearby duplicate
     final existing = ref.read(savedMasjidsProvider);
@@ -82,7 +83,7 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
         storedLng: m.longitude,
         currentLat: _selectedLocation!.latitude,
         currentLng: _selectedLocation!.longitude,
-        thresholdKm: 0.2,
+        thresholdKm: settings.masjidRadiusKm,
       ),
       orElse: () => null,
     );
@@ -118,15 +119,19 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
 
     await ref.read(savedMasjidsProvider.notifier).add(masjid);
     await ref.read(eventLogServiceProvider).log(
-          EventType.info,
-          'Saved masjid from map: $name',
+          EventType.masjidAdded,
+          'Added masjid from map: $name',
         );
 
     // Only check if NOT already silenced
-    final settings = ref.read(settingsProvider);
     final alreadySilenced = ref.read(geoSilencedProvider).valueOrNull ?? false;
     if (settings.geofenceSilenceEnabled && !alreadySilenced && mounted) {
-      final position = await GpsRetryService.getPositionWithRetry(context: context);
+      final position = await GpsRetryService.getPositionWithRetry(
+        context: context,
+        maxAttempts: 3,
+        retryDelay: const Duration(seconds: 3),
+        timeout: const Duration(seconds: 10),
+      );
       if (position != null) {
         final locationService = ref.read(locationServiceProvider);
         final isNearby = !locationService.hasMovedSignificantly(
@@ -134,10 +139,10 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
           storedLng: masjid.longitude,
           currentLat: position.latitude,
           currentLng: position.longitude,
-          thresholdKm: 0.2,
+          thresholdKm: settings.masjidRadiusKm,
         );
         if (isNearby) {
-          await ref.read(volumeControllerProvider).applySilenceForGeo();
+          await ref.read(volumeControllerProvider).applySilenceForGeo(masjidId: masjid.id);
           ref.invalidate(geoSilencedProvider);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -290,13 +295,14 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
                         ),
                     ],
                   ),
-                  // Show 200m radius circle for selected location
+                  // Show the configured geofence radius for the selected location.
                   if (_selectedLocation != null)
                     CircleLayer(
                       circles: [
                         CircleMarker(
                           point: _selectedLocation!,
-                          radius: 200,
+                          radius: ref.watch(settingsProvider).masjidRadiusMeters
+                              .toDouble(),
                           useRadiusInMeter: true,
                           color: AppColors.primary.withValues(alpha: 0.1),
                           borderColor: AppColors.primary.withValues(alpha: 0.3),

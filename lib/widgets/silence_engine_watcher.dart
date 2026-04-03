@@ -16,7 +16,14 @@ class SilenceEngineWatcher extends ConsumerWidget {
     // Whenever silenceWindowsProvider changes (due to settings, location,
     // or date change), autoScheduleProvider re-runs and reschedules alarms.
     ref.watch(autoScheduleProvider);
-    ref.watch(autoGeofenceProvider); // Auto-register geofences when masjids change
+    ref.watch(autoGeofenceProvider);
+    ref.watch(
+      gpsCalibrationProvider,
+    ); // GPS calibration for geofence self-healing
+    ref.watch(geoExitRecoveryProvider); // Faster repair for missed EXIT events
+    ref.watch(
+      geoReentryProbationProvider,
+    ); // Fast re-entry after a repaired false exit
     return child;
   }
 }

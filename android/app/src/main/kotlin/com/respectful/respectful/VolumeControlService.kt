@@ -5,7 +5,7 @@ import android.content.Context
 import android.media.AudioManager
 import android.os.Build
 
-class VolumeControlService(private val context: Context) {
+class VolumeControlService(val context: Context) {
 
     private val audioManager: AudioManager
         get() = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -78,9 +78,15 @@ class VolumeControlService(private val context: Context) {
         // Restore volume levels
         val ringVolume = (state["ringVolume"] as? Number)?.toInt() ?: 0
         val notifVolume = (state["notificationVolume"] as? Number)?.toInt() ?: 0
+        val alarmVolume = (state["alarmVolume"] as? Number)?.toInt()
+            ?: audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+        val mediaVolume = (state["mediaVolume"] as? Number)?.toInt()
+            ?: audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
 
         audioManager.setStreamVolume(AudioManager.STREAM_RING, ringVolume, 0)
         audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, notifVolume, 0)
+        audioManager.setStreamVolume(AudioManager.STREAM_ALARM, alarmVolume, 0)
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, mediaVolume, 0)
 
         return true
     }

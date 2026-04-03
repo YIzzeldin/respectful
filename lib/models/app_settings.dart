@@ -78,13 +78,31 @@ extension SilenceLevelDisplay on SilenceLevel {
 
 /// All app settings.
 class AppSettings {
+  static const int defaultMasjidRadiusMeters = 150;
+  static const int defaultGpsCalibrationMinutes = 2;
+
   final CalculationMethodType calculationMethod;
   final TimingPreferences timingPreferences;
+
   /// Time-based auto-silence (silence at prayer times). OFF by default.
   final bool timeBasedSilenceEnabled;
 
   /// Geofence-based auto-silence (silence at saved masjids). ON by default — main use case.
   final bool geofenceSilenceEnabled;
+  final bool masterSilenceEnabled;
+
+  /// GPS calibration interval in minutes (5-30). Only active when geofencing is enabled.
+  final int gpsCalibrationMinutes;
+
+  /// Geofence radius used for masjid detection and duplicate checks.
+  final int masjidRadiusMeters;
+
+  /// When enabled, wait for a geofence dwell event before silencing.
+  final bool requireMasjidDwellBeforeSilence;
+
+  /// When enabled, use foreground location updates only while geo-silenced
+  /// so exit detection can restore faster.
+  final bool fastGeoExitTrackingEnabled;
 
   final SilenceLevel silenceLevel;
   final bool usePerPrayerConfig;
@@ -98,6 +116,11 @@ class AppSettings {
     required this.timingPreferences,
     this.timeBasedSilenceEnabled = false,
     this.geofenceSilenceEnabled = true,
+    this.masterSilenceEnabled = true,
+    this.gpsCalibrationMinutes = defaultGpsCalibrationMinutes,
+    this.masjidRadiusMeters = defaultMasjidRadiusMeters,
+    this.requireMasjidDwellBeforeSilence = false,
+    this.fastGeoExitTrackingEnabled = true,
     this.silenceLevel = SilenceLevel.totalSilence,
     this.usePerPrayerConfig = false,
     this.onboardingComplete = false,
@@ -106,34 +129,47 @@ class AppSettings {
     this.longitude,
   });
 
-  factory AppSettings.defaults() => AppSettings(
-        timingPreferences: TimingPreferences.defaults(),
-      );
+  factory AppSettings.defaults() =>
+      AppSettings(timingPreferences: TimingPreferences.defaults());
 
   bool get hasLocation => latitude != null && longitude != null;
+  double get masjidRadiusKm => masjidRadiusMeters / 1000.0;
 
   AppSettings copyWith({
     CalculationMethodType? calculationMethod,
     TimingPreferences? timingPreferences,
     bool? timeBasedSilenceEnabled,
     bool? geofenceSilenceEnabled,
+    bool? masterSilenceEnabled,
+    int? gpsCalibrationMinutes,
+    int? masjidRadiusMeters,
+    bool? requireMasjidDwellBeforeSilence,
+    bool? fastGeoExitTrackingEnabled,
     SilenceLevel? silenceLevel,
     bool? usePerPrayerConfig,
     bool? onboardingComplete,
     String? languageCode,
     double? latitude,
     double? longitude,
-  }) =>
-      AppSettings(
-        calculationMethod: calculationMethod ?? this.calculationMethod,
-        timingPreferences: timingPreferences ?? this.timingPreferences,
-        timeBasedSilenceEnabled: timeBasedSilenceEnabled ?? this.timeBasedSilenceEnabled,
-        geofenceSilenceEnabled: geofenceSilenceEnabled ?? this.geofenceSilenceEnabled,
-        silenceLevel: silenceLevel ?? this.silenceLevel,
-        usePerPrayerConfig: usePerPrayerConfig ?? this.usePerPrayerConfig,
-        onboardingComplete: onboardingComplete ?? this.onboardingComplete,
-        languageCode: languageCode ?? this.languageCode,
-        latitude: latitude ?? this.latitude,
-        longitude: longitude ?? this.longitude,
-      );
+  }) => AppSettings(
+    calculationMethod: calculationMethod ?? this.calculationMethod,
+    timingPreferences: timingPreferences ?? this.timingPreferences,
+    timeBasedSilenceEnabled:
+        timeBasedSilenceEnabled ?? this.timeBasedSilenceEnabled,
+    geofenceSilenceEnabled:
+        geofenceSilenceEnabled ?? this.geofenceSilenceEnabled,
+    masterSilenceEnabled: masterSilenceEnabled ?? this.masterSilenceEnabled,
+    gpsCalibrationMinutes: gpsCalibrationMinutes ?? this.gpsCalibrationMinutes,
+    masjidRadiusMeters: masjidRadiusMeters ?? this.masjidRadiusMeters,
+    requireMasjidDwellBeforeSilence:
+        requireMasjidDwellBeforeSilence ?? this.requireMasjidDwellBeforeSilence,
+    fastGeoExitTrackingEnabled:
+        fastGeoExitTrackingEnabled ?? this.fastGeoExitTrackingEnabled,
+    silenceLevel: silenceLevel ?? this.silenceLevel,
+    usePerPrayerConfig: usePerPrayerConfig ?? this.usePerPrayerConfig,
+    onboardingComplete: onboardingComplete ?? this.onboardingComplete,
+    languageCode: languageCode ?? this.languageCode,
+    latitude: latitude ?? this.latitude,
+    longitude: longitude ?? this.longitude,
+  );
 }

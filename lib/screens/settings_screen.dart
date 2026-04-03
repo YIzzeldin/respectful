@@ -10,11 +10,20 @@ import '../providers/app_providers.dart';
 import '../services/event_log_service.dart';
 import 'troubleshooting_screen.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _isUpdatingGeo = false;
+  bool _isUpdatingTime = false;
+  bool _isUpdatingFastExit = false;
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final settings = ref.watch(settingsProvider);
 
@@ -37,8 +46,38 @@ class SettingsScreen extends ConsumerWidget {
                   label: l.masjidDetection,
                   subtitle: l.masjidDetectionDesc,
                   value: settings.geofenceSilenceEnabled,
-                  onChanged: (v) => ref.read(settingsProvider.notifier)
-                      .setGeofenceSilenceEnabled(v),
+                  onChanged: _isUpdatingGeo
+                      ? null
+                      : (v) async {
+                          setState(() => _isUpdatingGeo = true);
+                          try {
+                            final controller = ref.read(
+                              volumeControllerProvider,
+                            );
+                            if (!v) {
+                              await controller.disableGeofenceSilence();
+                            }
+                            await ref
+                                .read(settingsProvider.notifier)
+                                .setGeofenceSilenceEnabled(v);
+                            if (v) {
+                              await reEvaluateCurrentSuppression(
+                                ref,
+                                checkPrayer: false,
+                                checkGeo: true,
+                                clearPrayerOverride: false,
+                                clearGeoOverride: true,
+                              );
+                            }
+                            ref.invalidate(suppressionStateProvider);
+                            ref.invalidate(geoSilencedProvider);
+                            ref.invalidate(activeMasjidGeofencesProvider);
+                          } finally {
+                            if (mounted) {
+                              setState(() => _isUpdatingGeo = false);
+                            }
+                          }
+                        },
                 ),
                 const Divider(height: 20),
                 _ToggleRow(
@@ -46,12 +85,230 @@ class SettingsScreen extends ConsumerWidget {
                   label: l.timeBasedSilence,
                   subtitle: l.timeBasedSilenceDesc,
                   value: settings.timeBasedSilenceEnabled,
-                  onChanged: (v) => ref.read(settingsProvider.notifier)
-                      .setTimeBasedSilenceEnabled(v),
+                  onChanged: _isUpdatingTime
+                      ? null
+                      : (v) async {
+                          setState(() => _isUpdatingTime = true);
+                          try {
+                            final controller = ref.read(
+                              volumeControllerProvider,
+                            );
+                            if (!v) {
+                              await controller.disableTimeBasedSilence();
+                            }
+                            await ref
+                                .read(settingsProvider.notifier)
+                                .setTimeBasedSilenceEnabled(v);
+                            if (v) {
+                              await reEvaluateCurrentSuppression(
+                                ref,
+                                checkPrayer: true,
+                                checkGeo: false,
+                                clearPrayerOverride: true,
+                                clearGeoOverride: false,
+                              );
+                            }
+                            ref.invalidate(suppressionStateProvider);
+                          } finally {
+                            if (mounted) {
+                              setState(() => _isUpdatingTime = false);
+                            }
+                          }
+                        },
                 ),
               ],
             ),
             const SizedBox(height: 16),
+
+            // GPS Calibration (only when geofencing is enabled)
+            if (settings.geofenceSilenceEnabled) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.radar,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l.masjidRadius,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                l.masjidRadiusDesc,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textTertiary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          l.masjidRadiusValue(settings.masjidRadiusMeters),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 180,
+                          child: Slider(
+                            value: settings.masjidRadiusMeters.toDouble(),
+                            min: 100,
+                            max: 400,
+                            divisions: 12,
+                            activeColor: AppColors.primary,
+                            onChanged: (v) {
+                              ref
+                                  .read(settingsProvider.notifier)
+                                  .setMasjidRadiusMeters(v.round());
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    _ToggleRow(
+                      icon: Icons.directions_walk_rounded,
+                      label: l.passThroughProtection,
+                      subtitle: l.passThroughProtectionDesc,
+                      value: settings.requireMasjidDwellBeforeSilence,
+                      onChanged: (v) => ref
+                          .read(settingsProvider.notifier)
+                          .setRequireMasjidDwellBeforeSilence(v),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.gps_fixed,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l.gpsCalibration,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                l.gpsCalibrationDesc,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textTertiary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          l.gpsCalibrationInterval(
+                            settings.gpsCalibrationMinutes,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 180,
+                          child: Slider(
+                            value: settings.gpsCalibrationMinutes.toDouble(),
+                            min: 1,
+                            max: 30,
+                            divisions: 29,
+                            activeColor: AppColors.primary,
+                            onChanged: (v) {
+                              ref
+                                  .read(settingsProvider.notifier)
+                                  .updateSettings(
+                                    settings.copyWith(
+                                      gpsCalibrationMinutes: v.round(),
+                                    ),
+                                  );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    _ToggleRow(
+                      icon: Icons.flash_on_rounded,
+                      label: l.fasterExitDetection,
+                      subtitle: l.fasterExitDetectionDesc,
+                      value: settings.fastGeoExitTrackingEnabled,
+                      onChanged: _isUpdatingFastExit
+                          ? null
+                          : (v) async {
+                              setState(() => _isUpdatingFastExit = true);
+                              try {
+                                await ref
+                                    .read(settingsProvider.notifier)
+                                    .setFastGeoExitTrackingEnabled(v);
+                                await ref
+                                    .read(volumeControllerProvider)
+                                    .syncGeoExitTracking();
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _isUpdatingFastExit = false);
+                                }
+                              }
+                            },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Silence Level
             _SectionCard(
@@ -60,16 +317,20 @@ class SettingsScreen extends ConsumerWidget {
                 _SilenceLevelOption(
                   title: l.prioritySilence,
                   subtitle: l.prioritySilenceDesc,
-                  isSelected: settings.silenceLevel == SilenceLevel.prioritySilence,
-                  onTap: () => ref.read(settingsProvider.notifier)
+                  isSelected:
+                      settings.silenceLevel == SilenceLevel.prioritySilence,
+                  onTap: () => ref
+                      .read(settingsProvider.notifier)
                       .setSilenceLevel(SilenceLevel.prioritySilence),
                 ),
                 const SizedBox(height: 12),
                 _SilenceLevelOption(
                   title: l.totalSilence,
                   subtitle: l.totalSilenceDesc,
-                  isSelected: settings.silenceLevel == SilenceLevel.totalSilence,
-                  onTap: () => ref.read(settingsProvider.notifier)
+                  isSelected:
+                      settings.silenceLevel == SilenceLevel.totalSilence,
+                  onTap: () => ref
+                      .read(settingsProvider.notifier)
                       .setSilenceLevel(SilenceLevel.totalSilence),
                   warning: l.cautionMessage,
                 ),
@@ -79,58 +340,98 @@ class SettingsScreen extends ConsumerWidget {
 
             // Timing sections — only visible when time-based silence is ON
             if (settings.timeBasedSilenceEnabled) ...[
-            // Default Timing — show range across all prayers
-            Builder(builder: (context) {
-              final configs = [PrayerName.fajr, PrayerName.dhuhr, PrayerName.asr,
-                  PrayerName.maghrib, PrayerName.isha]
-                  .map((p) => settings.timingPreferences.configFor(p))
-                  .toList();
-              final beforeMin = configs.map((c) => c.minutesBeforeIqamah).reduce((a, b) => a < b ? a : b);
-              final beforeMax = configs.map((c) => c.minutesBeforeIqamah).reduce((a, b) => a > b ? a : b);
-              final afterMin = configs.map((c) => c.minutesAfter).reduce((a, b) => a < b ? a : b);
-              final afterMax = configs.map((c) => c.minutesAfter).reduce((a, b) => a > b ? a : b);
+              // Default Timing — show range across all prayers
+              Builder(
+                builder: (context) {
+                  final configs =
+                      [
+                            PrayerName.fajr,
+                            PrayerName.dhuhr,
+                            PrayerName.asr,
+                            PrayerName.maghrib,
+                            PrayerName.isha,
+                          ]
+                          .map((p) => settings.timingPreferences.configFor(p))
+                          .toList();
+                  final beforeMin = configs
+                      .map((c) => c.minutesBeforeIqamah)
+                      .reduce((a, b) => a < b ? a : b);
+                  final beforeMax = configs
+                      .map((c) => c.minutesBeforeIqamah)
+                      .reduce((a, b) => a > b ? a : b);
+                  final afterMin = configs
+                      .map((c) => c.minutesAfter)
+                      .reduce((a, b) => a < b ? a : b);
+                  final afterMax = configs
+                      .map((c) => c.minutesAfter)
+                      .reduce((a, b) => a > b ? a : b);
 
-              return _SectionCard(
-                title: l.defaultTiming,
+                  return _SectionCard(
+                    title: l.defaultTiming,
+                    children: [
+                      _TimingRow(
+                        label: l.beforeIqamah,
+                        value: beforeMin,
+                        unit: beforeMin == beforeMax
+                            ? l.min
+                            : '-$beforeMax ${l.min}',
+                      ),
+                      const Divider(height: 24),
+                      _TimingRow(
+                        label: l.prayerDuration,
+                        value: PrayerTimingConfig.prayerDurationMinutes,
+                        unit: '${l.min} (${l.fixed})',
+                      ),
+                      const Divider(height: 24),
+                      _TimingRow(
+                        label: l.afterPrayer,
+                        value: afterMin,
+                        unit: afterMin == afterMax
+                            ? l.min
+                            : '-$afterMax ${l.min}',
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Per-prayer timing — tappable to edit
+              _SectionCard(
+                title: l.perPrayerTiming,
                 children: [
-                  _TimingRow(label: l.beforeIqamah, value: beforeMin, unit: beforeMin == beforeMax ? l.min : '-$beforeMax ${l.min}'),
-                  const Divider(height: 24),
-                  _TimingRow(label: l.prayerDuration, value: PrayerTimingConfig.prayerDurationMinutes, unit: '${l.min} (${l.fixed})'),
-                  const Divider(height: 24),
-                  _TimingRow(label: l.afterPrayer, value: afterMin, unit: afterMin == afterMax ? l.min : '-$afterMax ${l.min}'),
-                ],
-              );
-            }),
-            const SizedBox(height: 16),
-
-            // Per-prayer timing — tappable to edit
-            _SectionCard(
-              title: l.perPrayerTiming,
-              children: [
-                Text(
-                  l.tapToCustomize,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
-                ),
-                const SizedBox(height: 8),
-                ...PrayerName.values.map((prayer) => Padding(
+                  Text(
+                    l.tapToCustomize,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textTertiary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...PrayerName.values.map(
+                    (prayer) => Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _PerPrayerTimingCard(
                         prayer: prayer,
                         config: settings.timingPreferences.configFor(prayer),
-                        onTap: () => _showTimingEditor(context, ref, prayer, settings),
+                        onTap: () =>
+                            _showTimingEditor(context, ref, prayer, settings),
                       ),
-                    )),
-              ],
-            ),
-            const SizedBox(height: 16),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
             ], // end of timeBasedSilenceEnabled block
-
             // Calculation Method
             _SectionCard(
               title: l.calculationMethod,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(12),
@@ -139,7 +440,10 @@ class SettingsScreen extends ConsumerWidget {
                     child: DropdownButton<CalculationMethodType>(
                       isExpanded: true,
                       value: settings.calculationMethod,
-                      icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: AppColors.textSecondary,
+                      ),
                       style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.textPrimary,
@@ -154,7 +458,9 @@ class SettingsScreen extends ConsumerWidget {
                       }).toList(),
                       onChanged: (method) {
                         if (method != null) {
-                          ref.read(settingsProvider.notifier).setCalculationMethod(method);
+                          ref
+                              .read(settingsProvider.notifier)
+                              .setCalculationMethod(method);
                         }
                       },
                     ),
@@ -180,11 +486,18 @@ class SettingsScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.language, size: 20, color: AppColors.textSecondary),
+                      const Icon(
+                        Icons.language,
+                        size: 20,
+                        color: AppColors.textSecondary,
+                      ),
                       const SizedBox(width: 12),
                       Text(
                         l.language,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
@@ -195,13 +508,13 @@ class SettingsScreen extends ConsumerWidget {
                     ],
                     selected: {settings.languageCode},
                     onSelectionChanged: (value) {
-                      ref.read(settingsProvider.notifier).updateSettings(
+                      ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings(
                             settings.copyWith(languageCode: value.first),
                           );
                     },
-                    style: ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                    ),
+                    style: ButtonStyle(visualDensity: VisualDensity.compact),
                   ),
                 ],
               ),
@@ -230,15 +543,25 @@ class SettingsScreen extends ConsumerWidget {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        const Icon(Icons.build_rounded, size: 20, color: AppColors.textSecondary),
+                        const Icon(
+                          Icons.build_rounded,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             l.troubleshooting,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: AppColors.textTertiary,
+                        ),
                       ],
                     ),
                   ),
@@ -311,7 +634,9 @@ class _SilenceLevelOption extends StatelessWidget {
           Row(
             children: [
               Icon(
-                isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                isSelected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
                 color: isSelected ? AppColors.primary : AppColors.textTertiary,
                 size: 22,
               ),
@@ -324,13 +649,18 @@ class _SilenceLevelOption extends StatelessWidget {
                       title,
                       style: TextStyle(
                         fontSize: 15,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                         color: AppColors.textPrimary,
                       ),
                     ),
                     Text(
                       subtitle,
-                      style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textTertiary,
+                      ),
                     ),
                   ],
                 ),
@@ -362,7 +692,7 @@ class _ToggleRow extends StatelessWidget {
   final String label;
   final String subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   const _ToggleRow({
     required this.icon,
@@ -376,14 +706,30 @@ class _ToggleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 20, color: value ? AppColors.primary : AppColors.textTertiary),
+        Icon(
+          icon,
+          size: 20,
+          color: value ? AppColors.primary : AppColors.textTertiary,
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-              Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textTertiary,
+                ),
+              ),
             ],
           ),
         ),
@@ -413,7 +759,10 @@ class _TimingRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 15, color: AppColors.textPrimary)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
+        ),
         Text(
           '$value $unit',
           style: const TextStyle(
@@ -458,14 +807,20 @@ class _PerPrayerTimingCard extends StatelessWidget {
                   children: [
                     Text(
                       l.prayerName(prayer.displayName),
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${config.minutesBeforeIqamah}${l.min} ${l.beforeIqamah} · '
                       '${PrayerTimingConfig.prayerDurationMinutes}${l.min} ${l.prayerDuration} · '
                       '${config.minutesAfter}${l.min} ${l.afterPrayer}',
-                      style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textTertiary,
+                      ),
                     ),
                   ],
                 ),
@@ -479,7 +834,11 @@ class _PerPrayerTimingCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              const Icon(Icons.chevron_right, size: 18, color: AppColors.textTertiary),
+              const Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: AppColors.textTertiary,
+              ),
             ],
           ),
         ),
@@ -507,10 +866,13 @@ void _showTimingEditor(
       prayer: prayer,
       initialConfig: config,
       onSave: (newConfig) {
-        final newPrefs = settings.timingPreferences.withConfig(prayer, newConfig);
-        ref.read(settingsProvider.notifier).updateSettings(
-              settings.copyWith(timingPreferences: newPrefs),
-            );
+        final newPrefs = settings.timingPreferences.withConfig(
+          prayer,
+          newConfig,
+        );
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings(settings.copyWith(timingPreferences: newPrefs));
       },
     ),
   );
@@ -544,7 +906,8 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
     _enabled = widget.initialConfig.enabled;
   }
 
-  int get _total => _beforeIqamah + PrayerTimingConfig.prayerDurationMinutes + _minutesAfter;
+  int get _total =>
+      _beforeIqamah + PrayerTimingConfig.prayerDurationMinutes + _minutesAfter;
 
   @override
   Widget build(BuildContext context) {
@@ -566,7 +929,10 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
             children: [
               Text(
                 l.prayerName(widget.prayer.displayName),
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               Text(
                 l.totalTime(_total),
@@ -589,7 +955,10 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(l.autoSilenceForPrayer, style: const TextStyle(fontSize: 15)),
+              Text(
+                l.autoSilenceForPrayer,
+                style: const TextStyle(fontSize: 15),
+              ),
               Switch(
                 value: _enabled,
                 activeTrackColor: AppColors.primary,
@@ -622,12 +991,15 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
             height: 50,
             child: ElevatedButton(
               onPressed: () {
-                widget.onSave(PrayerTimingConfig(
-                  minutesBeforeIqamah: _beforeIqamah,
-                  iqamahOffsetMinutes: widget.initialConfig.iqamahOffsetMinutes,
-                  minutesAfter: _minutesAfter,
-                  enabled: _enabled,
-                ));
+                widget.onSave(
+                  PrayerTimingConfig(
+                    minutesBeforeIqamah: _beforeIqamah,
+                    iqamahOffsetMinutes:
+                        widget.initialConfig.iqamahOffsetMinutes,
+                    minutesAfter: _minutesAfter,
+                    enabled: _enabled,
+                  ),
+                );
                 Navigator.pop(context);
               },
               child: Text(l.save),
@@ -637,7 +1009,9 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
           Center(
             child: TextButton(
               onPressed: () {
-                final defaultConfig = PrayerTimingConfig.defaultFor(widget.prayer);
+                final defaultConfig = PrayerTimingConfig.defaultFor(
+                  widget.prayer,
+                );
                 setState(() {
                   _beforeIqamah = defaultConfig.minutesBeforeIqamah;
                   _minutesAfter = defaultConfig.minutesAfter;
@@ -646,7 +1020,10 @@ class _TimingEditorSheetState extends State<_TimingEditorSheet> {
               },
               child: Text(
                 l.resetToDefaults,
-                style: const TextStyle(fontSize: 13, color: AppColors.textTertiary),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textTertiary,
+                ),
               ),
             ),
           ),
@@ -735,7 +1112,9 @@ class _LocationCardState extends ConsumerState<_LocationCard> {
       if (!serviceEnabled) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(context).pleaseEnableLocation)),
+            SnackBar(
+              content: Text(AppLocalizations.of(context).pleaseEnableLocation),
+            ),
           );
         }
         return;
@@ -749,22 +1128,29 @@ class _LocationCardState extends ConsumerState<_LocationCard> {
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(context).locationPermPermanentlyDenied)),
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context).locationPermPermanentlyDenied,
+              ),
+            ),
           );
         }
         return;
       }
 
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
-      await ref.read(settingsProvider.notifier).setLocation(
-            position.latitude,
-            position.longitude,
-          );
+      await ref
+          .read(settingsProvider.notifier)
+          .setLocation(position.latitude, position.longitude);
 
-      await ref.read(eventLogServiceProvider).log(
+      await ref
+          .read(eventLogServiceProvider)
+          .log(
             EventType.info,
             'Location manually refreshed '
             '(${position.latitude.toStringAsFixed(2)}, '
@@ -782,7 +1168,11 @@ class _LocationCardState extends ConsumerState<_LocationCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context).failedToGetLocation('$e'))),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).failedToGetLocation('$e'),
+            ),
+          ),
         );
       }
     } finally {
@@ -825,7 +1215,10 @@ class _LocationCardState extends ConsumerState<_LocationCard> {
               const SizedBox(width: 8),
               Text(
                 hasLocation ? '$lat, $lng' : l.notSet,
-                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
